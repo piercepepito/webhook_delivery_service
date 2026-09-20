@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, HttpUrl, field_validator, ValidationError
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 from datetime import datetime
 from uuid import UUID
@@ -14,7 +14,7 @@ class SubscriptionCreate(BaseModel):
     @classmethod
     def check_url(cls, v: HttpUrl) -> HttpUrl:
         if v.scheme != "https":
-            raise ValidationError("HTTPS scheme is required")
+            raise ValueError("HTTPS scheme is required")
         return v
 
     @field_validator("event_types")
