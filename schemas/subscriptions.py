@@ -5,6 +5,11 @@ from uuid import UUID
 
 from event_catalog import EVENT_TYPES
 
+from dotenv import load_dotenv
+import os
+load_dotenv()
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+
 class SubscriptionCreate(BaseModel):
     """Request body to create a subscription"""
     url: HttpUrl = Field(description="Must be HTTPS")
@@ -13,9 +18,12 @@ class SubscriptionCreate(BaseModel):
     @field_validator("url")
     @classmethod
     def check_url(cls, v: HttpUrl) -> HttpUrl:
-        if v.scheme != "https":
+        if (v.scheme == "https"):
+            return v
+        elif (ENVIRONMENT=="development") and (v.host in {"localhost", "127.0.0.1"}):
+            return v
+        else:
             raise ValueError("HTTPS scheme is required")
-        return v
 
     @field_validator("event_types")
     @classmethod

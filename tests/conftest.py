@@ -8,6 +8,18 @@ def valid_https_url():
             "https://example.com?key=value"]
 
 @pytest.fixture
+def valid_https_url_prod():
+    return ["https://subdomain.example.co.uk", "https://api.example.com/v1/subscriptions", 
+            "https://example.com/path?key=value", "https://example.com/path/to/resource",
+            "https://example.com?key=value"]
+
+@pytest.fixture
+def valid_https_url_dev():
+    return ["https://subdomain.example.co.uk", "https://api.example.com/v1/subscriptions", 
+            "https://example.com/path?key=value", "http://localhost:8000/docs", 
+            "http://127.0.0.1:8000/docs"]
+
+@pytest.fixture
 def valid_event_types():
     return ["stock.replenished", "stock.adjusted_manually","lot.expiring_soon",
             "lot.expired","lot.quarantined"]
