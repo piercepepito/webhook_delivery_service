@@ -5,6 +5,9 @@ from db import LocalSession
 
 from schemas import subscriptions
 
+from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound, DataError
+
 def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
     """
     Creates a subscription and generate a secret key
@@ -40,6 +43,29 @@ def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
     }
 
     return body_response 
+
+def get_subscription(id: str) -> dict:
+    with LocalSession() as session:
+        stmt = select(Subscriptions).where(
+            Subscriptions.id == id)
+
+        try:
+            result = session.execute(stmt)
+            subscription = result.scalar_one()
+        except DataError as e:
+            raise ValueError(f"Improper UUID format")
+        except NoResultFound as e:
+            raise ValueError("No Id found from input")
+
+    subscription_dict = {}
+    if subscription:
+        subscription_dict["id"] = subscription.id
+        subscription_dict["created_at"] = subscription.created_at
+        subscription_dict["event_types"] = subscription.event_types
+        subscription_dict["url"] = subscription.url
+        subscription_dict["active"] = subscription.active
+        
+    return subscription_dict
 
 
 '''
