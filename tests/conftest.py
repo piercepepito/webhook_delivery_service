@@ -33,3 +33,63 @@ def invalid_https_url():
 def invalid_event_types():
     return ["stock.replenifghshed", "stock.adjustd_manually","lot.expirrnig_soon",
             "lot.expdfgired","lot.quarertined"]
+
+@pytest.fixture
+def valid_type():
+    """Used for events table. A valid event type"""
+    return [
+        {
+        "type": "lot.expiring_soon",
+        "occurred_at": "2026-09-18T06:00:00+08:00",
+        "payload": {
+            "lot_number": "CD-2026-0914",
+            "sku": "BUTTER-UNSALTED-5KG",
+            "expiry_date": "2026-09-25",
+            "days_remaining": 7,
+            "quantity": 24,
+            "location": "COLD-02"
+                }
+        },
+        {
+        "type": "stock.below_reorder_point",
+        "occurred_at": "2026-09-18T09:14:22+08:00",
+        "payload": {
+            "sku": "FLOUR-BREAD-25KG",
+            "item_name": "Bread Flour 25kg",
+            "current_qty": 38,
+            "reorder_point": 40,
+            "unit": "bag",
+            "location": "A-12-3"
+        }
+        }
+    ]
+
+@pytest.fixture
+def invalid_type():
+    """Used for events table. A INVALID event type"""
+    return [
+        {
+        "type": "lot.expiring_soonest",
+        "occurred_at": "2026-09-18T06:00:00+08:00",
+        "payload": {
+            "lot_number": "CD-2026-0914",
+            "sku": "BUTTER-UNSALTED-5KG",
+            "expiry_date": "2026-09-25",
+            "days_remaining": 7,
+            "quantity": 24,
+            "location": "COLD-02"
+                }
+        },
+        {
+        "type": "stock.below_reorder_piont",
+        "occurred_at": "2026-09-18T09:14:22+08:00",
+        "payload": {
+            "sku": "FLOUR-BREAD-25KG",
+            "item_name": "Bread Flour 25kg",
+            "current_qty": 38,
+            "reorder_point": 40,
+            "unit": "bag",
+            "location": "A-12-3"
+        }
+        }
+    ]
