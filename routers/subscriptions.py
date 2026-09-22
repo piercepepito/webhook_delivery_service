@@ -67,23 +67,26 @@ def get_subscription(id: str) -> dict:
         
     return subscription_dict
 
+def get_subscription_url(type: str) -> list:
+    """part of @app.post /v1/events. Used to get the url from the type in events table. Mainly for fan out.
+    Args:
+        type: the event type present under the event_catalogs.py file
+    Returns
+        A list of all desintation urls that the data should be sent
+    """
+    with LocalSession() as session:
+        stmt = select(Subscriptions).where(
+            Subscriptions.event_types.any(type)
+        )
 
-'''
-rom urllib.parse import urlparse
+        result = session.execute(stmt)
+        destination_urls = result.scalars().all()
 
-DEV_HOSTS = {"localhost", "127.0.0.1", "receiver"}
+        if not destination_urls:    
+            raise ValueError("Unable to find url destination from given event type")
 
-@field_validator("url")
-@classmethod
-def url_must_be_https(cls, v: str) -> str:
-    parsed = urlparse(v)
+        destination_url = []
+        for url in destination_urls:
+            destination_url.append(url.url)
 
-    if parsed.scheme == "https":
-        return v
-
-    if parsed.scheme == "http" and parsed.hostname in DEV_HOSTS:
-        return v
-
-    raise ValueError("URL must use HTTPS")
-
-'''
+        return destination_url
