@@ -18,10 +18,10 @@ class Subscriptions(Base):
 
 class Events(Base):
     __tablename__ = "events"
-    id: Mapped[str] = mapped_column(Uuid, primary_key=True)
+    id: Mapped[str] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
     type: Mapped[str] = mapped_column(String, nullable=False)
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("now"))
     occurred_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 class Deliveries(Base):
