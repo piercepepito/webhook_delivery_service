@@ -1,5 +1,6 @@
 import pytest
 
+import random
 
 @pytest.fixture
 def valid_https_url():
@@ -99,4 +100,23 @@ def valid_deliveries_payload():
     return {
         "event_id":"f61b9712-bd9e-41c7-8f65-0163202c88f7",
         "subscription_id":"faac781f-d620-4ece-a8af-91d82c746659"
+    }
+
+@pytest.fixture
+def valid_delivery_attempt_payload():
+    random_duration = random.randint(5,25)
+    random_attempt = random.randint(3, 10)
+
+    return {
+        "delivery_id":"e99838e3-21c0-4bf0-b173-7e74d0fbddaa",
+        "duration_ms": random_duration,
+        "attempt_no": random_attempt
+    }
+
+@pytest.fixture 
+def invalid_delivery_attempt_payload():
+    return {
+        "delivery_id":"e99838e3-21c0-4bf0-b173-7e74d0fbddaa",
+        "attempt_no":10,
+        "duration_ms":27
     }

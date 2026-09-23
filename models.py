@@ -36,11 +36,11 @@ class Deliveries(Base):
 
 class DeliveryAttempts(Base):
     __tablename__="delivery_attempts"
-    id: Mapped[str] = mapped_column(Uuid, primary_key=True)
+    id: Mapped[str] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
     delivery_id: Mapped[str] = mapped_column(Uuid, ForeignKey("deliveries.id"), nullable=False)
     attempt_no: Mapped[int] = mapped_column(Integer, nullable=False)
     status_code: Mapped[int] = mapped_column(Integer)
     response_snippet: Mapped[str] = mapped_column(String)
     error: Mapped[str] = mapped_column(String)
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
-    attempted_at: Mapped[datetime] = mapped_column(DateTime)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("now()"))
