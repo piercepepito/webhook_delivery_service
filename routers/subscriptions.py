@@ -76,7 +76,8 @@ def get_subscription_url(type: str) -> list:
     """
     with LocalSession() as session:
         stmt = select(Subscriptions).where(
-            Subscriptions.event_types.any(type)
+            Subscriptions.event_types.any(type),
+            Subscriptions.active == True
         )
 
         result = session.execute(stmt)

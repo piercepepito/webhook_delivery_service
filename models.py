@@ -26,13 +26,13 @@ class Events(Base):
 
 class Deliveries(Base):
     __tablename__="deliveries"
-    id: Mapped[str] = mapped_column(Uuid, primary_key=True)
+    id: Mapped[str] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
     event_id: Mapped[str] = mapped_column(Uuid, ForeignKey("events.id"), nullable=False)
     subscription_id: Mapped[str] = mapped_column(Uuid, ForeignKey("subscriptions.id"), nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    next_attempt_at: Mapped[datetime] = mapped_column(DateTime)
-    created_at: Mapped[datetime] = mapped_column(DateTime)
+    status: Mapped[str] = mapped_column(String, nullable=False, server_default=text("pending"))
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default='1')
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("now"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("now()"))
 
 class DeliveryAttempts(Base):
     __tablename__="delivery_attempts"

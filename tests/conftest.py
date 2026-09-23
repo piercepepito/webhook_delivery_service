@@ -93,3 +93,10 @@ def invalid_type():
         }
         }
     ]
+
+@pytest.fixture
+def valid_deliveries_payload():
+    return {
+        "event_id":"f61b9712-bd9e-41c7-8f65-0163202c88f7",
+        "subscription_id":"faac781f-d620-4ece-a8af-91d82c746659"
+    }
