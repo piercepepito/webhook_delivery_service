@@ -37,3 +37,62 @@ def test_delivery_valid_payload(mock_webhook_delivery, mock_delivery_attempt_ins
     assert response["delivery_id"] == 42
     assert response["event_id"] == "sample"
     assert response["status"] == "succeeded"
+
+@patch("worker.tasks.delivery")
+@patch("worker.tasks.deliveries.post_new_delivery")
+@patch("worker.tasks.subscriptions.get_subscription_url")
+@patch("worker.tasks.events.post_event_data")
+def test_fan_out_valid_data(mock_post_event, mock_get_sub_url, mock_new_delivery, mock_deliver_message):
+    sample_event_response = Mock()
+    sample_event_response.id = "aaa"
+    sample_event_response.type = "sample_event"
+    mock_post_event.return_value = sample_event_response
+
+    sample_sub_url_response_1 = Mock()
+    sample_sub_url_response_1.id = "destination_id_1"
+    sample_sub_url_response_1.url = "destination_url_1"
+
+    sample_sub_url_response_2 = Mock()
+    sample_sub_url_response_2.id = "destination_id_2"
+    sample_sub_url_response_2.url = "destination_url_2"
+    mock_get_sub_url.return_value = [sample_sub_url_response_1, sample_sub_url_response_2]
+
+    sample_post_delivery = Mock()
+    mock_new_delivery.return_value = sample_post_delivery
+
+    mock_deliver_message.side_effect = [
+        {"delivery_id": sample_sub_url_response_1.id , "event_id":sample_event_response.id, "status":"succeeded"},
+        {"delivery_id": sample_sub_url_response_2.id, "event_id":sample_event_response.id, "status":"succeeded"}
+    ]
+
+    sample_payload_input = {
+        "type": "stock.below_reorder_point",
+        "occurred_at": "2026-09-18T09:14:22+08:00",
+        "payload": {
+            "sku": "FLOUR-BREAD-25KG",
+            "item_name": "Bread Flour 25kg",
+            "current_qty": 38,
+            "reorder_point": 40,
+            "unit": "bag",
+            "location": "A-12-3"
+        }
+        }
+    
+    fan_out_response = tasks.fan_out(sample_payload_input)
+
+    args, kwargs = mock_get_sub_url.call_args
+    assert args[0] == sample_event_response.type
+
+    assert mock_new_delivery.call_args_list[0].args[0] == {
+        "event_id": "aaa",
+        "subscription_id": "destination_id_1"
+    }
+    assert mock_new_delivery.call_args_list[1].args[0] == {
+        "event_id":"aaa",
+        "subscription_id":"destination_id_2"
+    }
+
+    mock_post_event.assert_called_once()
+    mock_get_sub_url.assert_called_once()
+    mock_new_delivery.call_count == len(mock_get_sub_url)
+    mock_deliver_message.call_count == len(mock_get_sub_url)

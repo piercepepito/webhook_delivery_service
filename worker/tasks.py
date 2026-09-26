@@ -7,16 +7,13 @@ import schemas
 from worker import webhook
 
 def fan_out(event_payload: schemas.events.post_event_payload):
-    """
-    
-    """
     #create new event
     print("Creating New Event")
     event = events.post_event_data(event_payload)
     #check for returned rows in subscription based on event
     print('Finding destination urls')
     subscription_data = subscriptions.get_subscription_url(event.type)
-    for subscription in subscription_data[:2]:
+    for subscription in subscription_data:
         #we need event id and subscription id
         delivery_payload={
             "event_id":event.id,
@@ -24,7 +21,8 @@ def fan_out(event_payload: schemas.events.post_event_payload):
         }
         delivery_response = deliveries.post_new_delivery(delivery_payload)
         #add deliver function
-    return #event id, subscription id, destination url, status
+        deliver_data_response = delivery(subscription.url, event_payload, delivery_response)
+    return deliver_data_response
 
 
 def delivery(destination_url, webhook_payload, delivery_response):
