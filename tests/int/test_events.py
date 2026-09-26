@@ -19,4 +19,4 @@ def test_create_event():
 
         response = events.post_event_data(sample_payload)
 
-        assert response == sample_payload["payload"]
+        assert response.payload == sample_payload["payload"]

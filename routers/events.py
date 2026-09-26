@@ -21,4 +21,4 @@ def post_event_data(event_payload: events.post_event_payload):
 
         session.refresh(new_event)
 
-    return new_event.payload
+    return new_event
