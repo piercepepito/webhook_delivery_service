@@ -29,8 +29,8 @@ def fan_out(event_payload: schemas.events.post_event_payload):
 
 def delivery(destination_url, webhook_payload, delivery_response):
     #http request to url destination
-    webhook_response, duration_ms = webhook.deliver_webhook()
-    #wait for response
+    webhook_response, duration_ms = webhook.deliver_webhook(destination_url, webhook_payload)
+
     #create new delivery attempt row
     delivery_attempt_payload = {
         "delivery_id":delivery_response.id,
@@ -38,12 +38,19 @@ def delivery(destination_url, webhook_payload, delivery_response):
         "attempt_no":1 #assuming no retries
     }
 
-    delivery_attempt_response = delivery_attempts.create_new_delivery_attempt(delivery_attempt_payload) #delivery id, duration_ms, attempt_no
-    #whatever response happened update delivery table
+    delivery_attempt_response = delivery_attempts.create_new_delivery_attempt(delivery_attempt_payload)
+    #update delivery table
     updated_delivery = deliveries.patch_existing_delivery_id(delivery_response.id, "succeeded", new_attempt_count=1)
     #if succesful, then update delivery and delivery_attempts table
     #if not, wait for exponential backoff and jitter, and update...
-    return
+
+    response = {
+        "delivery_id":delivery_response.id,
+        "event_id":delivery_response.event_id,
+        "status":"succeeded"
+    }
+
+    return response
 
 #create hmac from secret and payload
 #create signature
