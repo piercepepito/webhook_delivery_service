@@ -81,13 +81,10 @@ def get_subscription_url(type: str) -> list:
         )
 
         result = session.execute(stmt)
-        destination_urls = result.scalars().all()
+        subscription_data = result.scalars().all()
 
-        if not destination_urls:    
+        if not subscription_data:    
             raise ValueError("Unable to find url destination from given event type")
 
-        destination_url = []
-        for url in destination_urls:
-            destination_url.append(url.url)
 
-        return destination_url
+        return subscription_data
