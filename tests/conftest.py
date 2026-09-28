@@ -113,6 +113,21 @@ def valid_delivery_attempt_payload():
         "attempt_no": random_attempt
     }
 
+@pytest.fixture
+def valid_delivery_attempt_with_error_codes():
+    random_duration = random.randint(400,700)
+    random_attempt = random.randint(500, 600)
+
+    return {
+        "delivery_id":"e99838e3-21c0-4bf0-b173-7e74d0fbddaa",
+        "duration_ms": random_duration,
+        "attempt_no": random_attempt,
+        "status_code":403,
+        "response_snippet":"sample_response_snippet",
+        "error":"sample_error"
+    }
+
+
 @pytest.fixture 
 def invalid_delivery_attempt_payload():
     return {
