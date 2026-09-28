@@ -4,6 +4,8 @@ from routers import deliveries
 
 from sqlalchemy.exc import IntegrityError
 
+from datetime import datetime
+
 @pytest.mark.integration
 def test_valid_delivery_payload(valid_deliveries_payload):
     response = deliveries.post_new_delivery(valid_deliveries_payload)
@@ -17,14 +19,19 @@ def test_valid_delivery_payload(valid_deliveries_payload):
 @pytest.mark.integration
 def test_valid_patch_delivery_table():
     delivery_id = "e99838e3-21c0-4bf0-b173-7e74d0fbddaa"
-    attempt_no = 2
+    attempt_no = 4
     status = "succeeded"
+    next_attempt_at = "2026-09-28 13:30:30+08:00"
 
-    response = deliveries.patch_existing_delivery_id(delivery_id=delivery_id, new_status=status, new_attempt_count=attempt_no)
+    response = deliveries.patch_existing_delivery_id(delivery_id=delivery_id, 
+                                                     new_status=status, 
+                                                     new_attempt_count=attempt_no,
+                                                     next_attempt_at = datetime.fromisoformat(next_attempt_at))
 
     assert response.attempt_count == attempt_no
     assert str(response.id) == delivery_id
     assert response.status == status
+    assert response.next_attempt_at == datetime.fromisoformat(next_attempt_at)
 
 @pytest.mark.integration
 def test_invalid_patch_delivery_table():
