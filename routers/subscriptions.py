@@ -33,16 +33,7 @@ def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
 
         session.refresh(new_sub)
 
-    body_response = {
-        "id":str(new_sub.id),
-        "url":new_sub.url,
-        "event_types":new_sub.event_types,
-        "secret":new_sub.secret,
-        "active":bool(new_sub.active),
-        "created_at":new_sub.created_at.isoformat()
-    }
-
-    return body_response 
+    return new_sub
 
 def get_subscription(id: str) -> dict:
     with LocalSession() as session:
