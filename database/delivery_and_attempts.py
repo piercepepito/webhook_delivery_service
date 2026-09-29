@@ -7,7 +7,7 @@ from models import Deliveries, DeliveryAttempts
 
 def message_sent_attempt(delivery_attempt_payload: DeliveryAttempts, 
                          deliver_status: Literal['pending', 'in_flight', 'succeeded', 'exhausted'], 
-                         seconds:int = 0) -> Deliveries:
+                         seconds:int = 0) -> dict:
     """
     Creates a new delivery attempt row and updates the delivery row depending on the delivery id
 
@@ -28,4 +28,8 @@ def message_sent_attempt(delivery_attempt_payload: DeliveryAttempts,
                                           delivery_attempt_payload["attempt_no"],
                                           next_attempt_at = future_attempt)
 
-    return delivery_patch
+    
+    return {
+        "delivery_id":str(delivery_patch.id),
+        "status":str(delivery_patch.status)
+    }

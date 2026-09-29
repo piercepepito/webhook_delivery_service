@@ -86,5 +86,4 @@ def get_subscription_url(type: str) -> list:
         if not subscription_data:    
             raise ValueError("Unable to find url destination from given event type")
 
-
         return subscription_data

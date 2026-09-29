@@ -4,7 +4,7 @@ from models import DeliveryAttempts
 
 from sqlalchemy.exc import IntegrityError
 
-def create_new_delivery_attempt(delivery_attempt_payload):
+def create_new_delivery_attempt(delivery_attempt_payload: DeliveryAttempts) -> DeliveryAttempts:
     new_delivery_attempt = DeliveryAttempts(**delivery_attempt_payload)
 
     with LocalSession() as session:

@@ -2,8 +2,9 @@ import requests
 import time
 
 from utils import webhook_signature
+from worker import exceptions
 
-def deliver_webhook(url: str, webhook_payload: dict, secret_key: str) -> tuple[requests.Response, int]:
+def deliver_webhook(url: str, webhook_payload: dict, secret_key: str) -> tuple[requests.Response, float]:
     """
     Delivers payload to the subscriber
 
@@ -15,7 +16,7 @@ def deliver_webhook(url: str, webhook_payload: dict, secret_key: str) -> tuple[r
         - the response of the POST request and
         - the duration of the function
     """
-    signature = webhook_signature(secret_key, webhook_payload)
+    signature = webhook_signature.generate_signature(secret_key, webhook_payload)
 
     headers = {
         "X-Webhook-Signature":signature,
@@ -24,13 +25,16 @@ def deliver_webhook(url: str, webhook_payload: dict, secret_key: str) -> tuple[r
 
     start = time.perf_counter()
     try:
-        response = requests.post(url, webhook_payload, headers)
+        response = requests.post(url, 
+                                 json = webhook_payload, 
+                                 headers= headers,
+                                 timeout=(3,5))
 
         response.raise_for_status()
-        end = time.perf_counter()
+
+        duration_ms = (time.perf_counter()-start)*1_000
+        return response, duration_ms
+    
     except requests.RequestException as e:
-        raise e
-
-    duration_ms = (end-start)*1_000
-
-    return response, duration_ms
+        duration_ms = (time.perf_counter()-start)*1_000
+        raise exceptions.WebDeliveryError(e, duration_ms) from e
