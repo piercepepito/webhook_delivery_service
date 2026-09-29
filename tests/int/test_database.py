@@ -1,12 +1,15 @@
 from database import delivery_and_attempts
+from routers import deliveries
 
 import pytest
 
 @pytest.mark.integration
-def test_database_delivery_and_delivery_attempt():
+def test_database_delivery_and_delivery_attempt(valid_deliveries_payload):
+    delivery_data = deliveries.post_new_delivery(valid_deliveries_payload)
+
     delivery_attempt_payload_input = {
-        "delivery_id":"f177bcc1-f894-4d43-be3c-f2fa2066eb5a",
-        "attempt_no":999,
+        "delivery_id":delivery_data.id,
+        "attempt_no":delivery_data.attempt_count + 1,
         "status_code":200,
         "duration_ms":45
     }
@@ -17,4 +20,4 @@ def test_database_delivery_and_delivery_attempt():
                                                           delivery_status,
                                                           seconds)
 
-    assert str(response.id) == delivery_attempt_payload_input["delivery_id"]
+    assert response.id == delivery_attempt_payload_input["delivery_id"]
