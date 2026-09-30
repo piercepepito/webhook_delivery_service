@@ -35,10 +35,19 @@ def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
 
     return new_sub
 
-def get_subscription(id: str) -> dict:
+def get_subscription(subscription_id: str) -> dict:
+    """
+    Get the subscription row using id
+
+    args:
+    subscription_id: id used to filter out and capture the data
+
+    returns:
+    - a singular row all placed under a single dictionary
+    """
     with LocalSession() as session:
         stmt = select(Subscriptions).where(
-            Subscriptions.id == id)
+            Subscriptions.id == subscription_id)
 
         try:
             result = session.execute(stmt)
@@ -58,7 +67,7 @@ def get_subscription(id: str) -> dict:
         
     return subscription_dict
 
-def get_subscription_url(type: str) -> list:
+def get_subscription_url(type: str) -> list[Subscriptions]:
     """part of @app.post /v1/events. Used to get the url from the type in events table. Mainly for fan out.
     Args:
         type: the event type present under the event_catalogs.py file

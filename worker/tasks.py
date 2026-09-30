@@ -47,6 +47,23 @@ def fan_out(event_payload: schemas.events.post_event_payload) -> list[dict]:
 
 @celery_app.celery_app.task(bind = True, max_retries = 5)
 def delivery(self, destination_url: str, webhook_payload: dict, delivery_id, secret) -> dict:
+    """
+    Send the payload data to the reciever. Whenever the 1st attepmt fails, there will be retries (a maximum of 5).
+    Once the attempt goes beyond the maximum allowable retries, then it will return an exhausted status under the deliveries row.
+    
+    Args:
+    destination_url: the URL used to send the data payload
+    webhook_payload: the data being sent to the reciever
+    delivery_id:
+    secret: secret key
+
+    Returns:
+        - available initial status of the payload
+
+    Raises:
+        WebDeliveryError: raises when a webhook failed to post
+    
+    """
     try:
         delivery_attempt_payload = {
             "delivery_id": str(delivery_id),

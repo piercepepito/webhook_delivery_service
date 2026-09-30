@@ -8,6 +8,10 @@ from requests import RequestException
 @patch("worker.webhook.webhook_signature")
 @patch("worker.webhook.requests")
 def test_webhook_valid_payload(mock_requests, mock_signature):
+    """
+    Verifies that a valid webhook response returns the HTTP response and the request
+    duration in milliseconds
+    """
     url = "https://sample.payload.com"
     payload = {
         "name": "John"
@@ -29,6 +33,9 @@ def test_webhook_valid_payload(mock_requests, mock_signature):
 @patch("worker.webhook.webhook_signature")
 @patch("worker.webhook.requests.post")
 def test_webhook_connection_error(mock_requests, mock_signature):
+        """
+        Verifies that an error would occur, whenever there'e a failed connection
+        """
         url = "https://sample.payload.com"
         payload = {
             "name": "John"

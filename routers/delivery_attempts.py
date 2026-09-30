@@ -5,6 +5,15 @@ from models import DeliveryAttempts
 from sqlalchemy.exc import IntegrityError
 
 def create_new_delivery_attempt(delivery_attempt_payload: DeliveryAttempts) -> DeliveryAttempts:
+    """
+    Creates a new row under the delivery_attempts table
+
+    args:
+    delivery_attempt_payload: Ensures that the data always has the columns under the DeliveryAttempt Object
+
+    returns:
+    - The newly created delivery_attempt row using the DeliveryAttempts 
+    """
     new_delivery_attempt = DeliveryAttempts(**delivery_attempt_payload)
 
     with LocalSession() as session:

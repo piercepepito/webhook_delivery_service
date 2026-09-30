@@ -5,6 +5,12 @@ import pytest
 
 @pytest.mark.integration
 def test_database_delivery_and_delivery_attempt(valid_deliveries_payload):
+    """
+    Focuses on the delivery_attempt_payload and should have the expected returned data
+
+    Args:
+    valid_deliveries_payload
+    """
     delivery_data = deliveries.post_new_delivery(valid_deliveries_payload)
 
     delivery_attempt_payload_input = {

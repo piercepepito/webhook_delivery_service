@@ -5,7 +5,18 @@ from models import Deliveries
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-def post_new_delivery(delivery_payload):
+from typing import Literal
+
+def post_new_delivery(delivery_payload: dict) -> Deliveries:
+    """
+    Creates a new delivery row
+
+    Args:
+    delivery_payload: a dictionary containing all the valid data used for the Deliveries table
+
+    Returns:
+    - the newly created delivery row
+    """
     new_delivery = Deliveries(**delivery_payload)
 
     with LocalSession() as session:
@@ -15,7 +26,13 @@ def post_new_delivery(delivery_payload):
 
     return new_delivery
 
-def get_delivery(delivery_id:str):
+def get_delivery(delivery_id:str) -> Deliveries:
+    """
+    Querues the deliveries tabl, gets all the columns
+
+    Returns:
+    - the returned singular row with the Deliveries object being used
+    """
     with LocalSession() as session:
         stmt = select(Deliveries).where(
             Deliveries.id==delivery_id
@@ -26,7 +43,25 @@ def get_delivery(delivery_id:str):
 
         return delivery_data
     
-def patch_existing_delivery_id(delivery_id, new_status, new_attempt_count, next_attempt_at):
+def patch_existing_delivery_id(delivery_id: str, 
+                               new_status: Literal['pending', 'in_flight', 'succeeded', 'exhausted'], 
+                               new_attempt_count: int,
+                               next_attempt_at) -> Deliveries:
+    """
+    Updates a delivery row and changes the status, attempt_no, and next_attempt_at
+
+    Args:
+    delivery_id: the delivery id 
+    new_status: Chooses between 1 of 4 choices: 'pending', 'in_flight', 'succeeded', 'exhausted'
+    new_attempt_count: the number attempts been made
+    next_attempt_at: datetime of when the next retry will occur
+
+    Returns
+    - a Deliveries object containing all the cells of the delivery table
+
+    Raise
+    - returns an integrity error when any of the Args have a validation error
+    """
     with LocalSession() as session:
         try:
             stmt = select(Deliveries).where(

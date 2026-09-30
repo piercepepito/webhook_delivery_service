@@ -8,7 +8,11 @@ from worker import tasks
 @patch("worker.tasks.delivery_attempts.create_new_delivery_attempt")
 @patch("worker.tasks.webhook.deliver_webhook")
 def test_delivery_valid_payload(mock_webhook_delivery, mock_delivery_attempt_insert, mock_patch_delivery_row):
-
+    """
+    Verifies that a valid webhook delivery successfully processes the response,
+    records the delivery attempt with its duration and delivery ID, updates the
+    delivery record, and returns the expected delivery details and status.
+    """
     webhook_output_mock = Mock()
     mock_webhook_delivery.return_value = webhook_output_mock, 423
 
@@ -43,6 +47,11 @@ def test_delivery_valid_payload(mock_webhook_delivery, mock_delivery_attempt_ins
 @patch("worker.tasks.subscriptions.get_subscription_url")
 @patch("worker.tasks.events.post_event_data")
 def test_fan_out_valid_data(mock_post_event, mock_get_sub_url, mock_new_delivery, mock_deliver_message):
+    """
+    Verifies that fan_out creates an event, retrieves matching subscriptions,
+    creates a delivery record for each subscription, and queues an individual
+    delivery task for each destination.
+    """
     sample_event_response = Mock()
     sample_event_response.id = "aaa"
     sample_event_response.type = "sample_event"

@@ -5,6 +5,9 @@ from database import delivery_and_attempts
 @patch("database.delivery_and_attempts.deliveries")
 @patch("database.delivery_and_attempts.delivery_attempts")
 def test_valid_data_deliver_delivery(mock_delivery_attempt_new, mock_patch_delivery):
+    """
+    Validates message_sent_attempt using valid input data
+    """
     deliver_attempt_mock_output = Mock()
     deliver_attempt_mock_output.delivery_id = "delivery_id"
     mock_delivery_attempt_new.create_new_delivery_attempt.return_value = deliver_attempt_mock_output

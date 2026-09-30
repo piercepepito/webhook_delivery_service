@@ -18,6 +18,12 @@ def test_valid_delivery_payload(valid_deliveries_payload):
 
 @pytest.mark.integration
 def test_valid_patch_delivery_table(valid_deliveries_payload):
+    """
+    Ensures that the output of the patch_existing_delivery_id func is as expected
+
+    Args:
+    valid_deliveries_payload: a valid payload used for post_new_delivery func
+    """
     delivery_data = deliveries.post_new_delivery(valid_deliveries_payload)
 
     delivery_id = delivery_data.id
@@ -37,6 +43,12 @@ def test_valid_patch_delivery_table(valid_deliveries_payload):
 
 @pytest.mark.integration
 def test_invalid_patch_delivery_table():
+    """
+    Tests patch_existing_delivery_id using an invalid input
+
+    Raises
+    IntegrityError: due to an invalid input data, an integrity error should occur
+    """
     delivery_id = "e99838e3-21c0-4bf0-b173-7e74d0fbddaa"
     attempt_no = 2
     status = "invalid status field"
