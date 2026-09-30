@@ -15,6 +15,16 @@ def post_new_delivery(delivery_payload):
 
     return new_delivery
 
+def get_delivery(delivery_id:str):
+    with LocalSession() as session:
+        stmt = select(Deliveries).where(
+            Deliveries.id==delivery_id
+        )
+
+        result = session.execute(stmt)
+        delivery_data = result.scalar_one()
+
+        return delivery_data
     
 def patch_existing_delivery_id(delivery_id, new_status, new_attempt_count, next_attempt_at):
     with LocalSession() as session:
