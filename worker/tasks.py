@@ -10,7 +10,7 @@ from requests import RequestException
 from database import delivery_and_attempts
 
 @celery_app.celery_app.task
-def fan_out(event_payload: schemas.events.post_event_payload) -> dict:
+def fan_out(event_payload: schemas.events.post_event_payload) -> list[dict]:
     """
     From the given payload, creates a new event, finds the desintation urls from the subscriptions table, and individually sends the message
     based on the returned number of rows from subscriptions
@@ -26,6 +26,8 @@ def fan_out(event_payload: schemas.events.post_event_payload) -> dict:
     #check for returned rows in subscription based on event
     print('Finding destination urls')
     subscription_data = subscriptions.get_subscription_url(event.type)
+
+    delivery_output=[]
     for subscription in subscription_data:
         #we need event id and subscription id
         delivery_payload={
@@ -34,8 +36,14 @@ def fan_out(event_payload: schemas.events.post_event_payload) -> dict:
         }
         delivery_response = deliveries.post_new_delivery(delivery_payload)
         #add deliver function
-        deliver_data_response = delivery(subscription.url, event_payload, delivery_response)
-    return deliver_data_response
+        deliver_task = delivery.delay(subscription.url, event_payload, str(delivery_response.id), str(subscription.secret))
+        #update the output
+        delivery_payload["status"] = "pending"
+        delivery_payload["delivery_id"] = delivery_response.id
+        delivery_payload["task_id"] = deliver_task.id
+
+        delivery_output.append(delivery_payload)
+    return delivery_output
 
 @celery_app.celery_app.task(bind = True, max_retries = 5)
 def delivery(self, destination_url: str, webhook_payload: dict, delivery_id, secret) -> dict:
