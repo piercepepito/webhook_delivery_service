@@ -135,3 +135,12 @@ def invalid_delivery_attempt_payload():
         "attempt_no":10,
         "duration_ms":27
     }
+
+@pytest.fixture
+def valid_subscription_payload():
+    return [
+        {"url": "http://127.0.0.1:8000/webhook",
+        "event_types": ["asset.serial_registered"]},
+        {"url": "http://127.0.0.1:8000/webhook",
+        "event_types": ["asset.serial_registered", "asset.decommissioned"]},
+    ]
