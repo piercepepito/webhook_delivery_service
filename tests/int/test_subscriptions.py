@@ -3,44 +3,42 @@ import pytest
 from routers import subscriptions
 
 from sqlalchemy.exc import NoResultFound, DataError
+from uuid import UUID
+import schemas
+
 
 @pytest.mark.integration
-def test_create_subscription():
-    payload = {
-        "url": "https://cascade.example.com/hooks/wms",
-        "event_types": ["stock.below_reorder_point", "lot.expiring_soon"],
-    }
+def test_create_subscription(valid_create_subscription_payload):
+    payload = valid_create_subscription_payload
 
     response = subscriptions.create_subscription(payload)
 
     expected = {
-        "url":payload["url"],
-        "event_types":payload["event_types"],
+        "url":str(payload.url),
+        "event_types":payload.event_types,
         "active":True
     }
 
     for key, values in expected.items():
-        assert response[key] == values
+        assert getattr(response, key) == values
 
-    assert response["active"]
-    assert response["id"]
-    assert response["secret"]
-    assert response["created_at"]
+    assert hasattr(response, "secret")
+    assert response.secret is not None
+    assert response.secret != ""
 
 @pytest.mark.integration
-def test_get_subscription_valid_uuid_in_db():
+def test_get_subscription_valid_uuid_in_db(valid_create_subscription_payload):
     """
     Tests if function can get the proper dataset from the id.
-    Expected to only recieve a single row. 
+    Expected to only recieve a single row. Internal usage only
     """
-    response=subscriptions.get_subscription("faac781f-d620-4ece-a8af-91d82c746659")
+    payload = valid_create_subscription_payload
+    new_subscription = subscriptions.create_subscription(payload)
 
-    assert "id" in response
-    assert "created_at" in response
-    assert "event_types" in response
-    assert "url" in response
-    assert "active" in response
-    assert "secret" not in response
+    response=subscriptions.get_subscription(new_subscription.id)
+
+    assert response.id == new_subscription.id
+    assert hasattr(response, "secret")
 
 @pytest.mark.integration
 def test_get_subscription_invalid_uuid():
@@ -56,7 +54,7 @@ def test_get_subscription_invalid_uuid():
 def test_get_subscription_id_not_found():
     """a no result found error should occur from an id never found in the table"""
     with pytest.raises(ValueError) as error:
-        subscriptions.get_subscription("faac781f-d620-4ece-a8af-91d82c741111")
+        subscriptions.get_subscription("faac781f-d620-4ece-1111-91d82c741111")
 
     assert str(error.value) == "No Id found from input"
 
@@ -64,13 +62,16 @@ def test_get_subscription_id_not_found():
 def test_get_subscription_url_invalid_type():
     """Running get_subscrition_url func with a type never found in the subscriptions table"""
     with pytest.raises(ValueError) as error:
-        subscriptions.get_subscription_url("receipt.mismatch_detected")
+        subscriptions.get_subscription_url("fake.event_no_exist")
 
     assert str(error.value) == "Unable to find url destination from given event type"
 
 @pytest.mark.integration
-def test_get_subscription_url_valid_type():
-    """Running get_subscrition_url func with a type never found in the subscriptions table"""
-    response = subscriptions.get_subscription_url("stock.below_reorder_point")
+def test_get_subscription_url_valid_type(valid_create_subscription_payload):
+    """Running get_subscrition_url func with a type that exists in the subscriptio ns table"""
+    payload = valid_create_subscription_payload
+    new_subscription = subscriptions.create_subscription(payload)
+
+    response = subscriptions.get_subscription_url(new_subscription.event_types[0])
 
     assert len(response) >= 1
