@@ -3,8 +3,9 @@ from db import LocalSession
 from models import DeliveryAttempts
 
 from sqlalchemy.exc import IntegrityError
+import schemas.delivery_attempts
 
-def create_new_delivery_attempt(delivery_attempt_payload: DeliveryAttempts) -> DeliveryAttempts:
+def create_new_delivery_attempt(delivery_attempt_payload: schemas.delivery_attempts.DeliveryAttemptCreate) -> DeliveryAttempts:
     """
     Creates a new row under the delivery_attempts table
 
