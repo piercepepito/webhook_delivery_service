@@ -5,9 +5,11 @@ from models import Deliveries
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+import schemas.deliveries
 from typing import Literal
+from uuid import UUID
 
-def post_new_delivery(delivery_payload: dict) -> Deliveries:
+def post_new_delivery(delivery_payload: schemas.deliveries.DeliveryCreate) -> Deliveries:
     """
     Creates a new delivery row
 
@@ -20,13 +22,17 @@ def post_new_delivery(delivery_payload: dict) -> Deliveries:
     new_delivery = Deliveries(**delivery_payload)
 
     with LocalSession() as session:
-        session.add(new_delivery)
-        session.commit()
-        session.refresh(new_delivery)
+        try:
+            session.add(new_delivery)
+            session.commit()
+            session.refresh(new_delivery)
 
-    return new_delivery
+            return new_delivery
+        except IntegrityError as e:
+            session.rollback()
+            raise
 
-def get_delivery(delivery_id:str) -> Deliveries:
+def get_delivery(delivery_id:UUID) -> Deliveries:
     """
     Querues the deliveries tabl, gets all the columns
 
@@ -37,11 +43,13 @@ def get_delivery(delivery_id:str) -> Deliveries:
         stmt = select(Deliveries).where(
             Deliveries.id==delivery_id
         )
-
-        result = session.execute(stmt)
-        delivery_data = result.scalar_one()
-
-        return delivery_data
+        try:
+            result = session.execute(stmt)
+            delivery_data = result.scalar_one()
+            return delivery_data
+        except IntegrityError as e:
+            session.rollback()
+            raise
     
 def patch_existing_delivery_id(delivery_id: str, 
                                new_status: Literal['pending', 'in_flight', 'succeeded', 'exhausted'], 
