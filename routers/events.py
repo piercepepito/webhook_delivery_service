@@ -1,5 +1,7 @@
 from db import LocalSession
 
+from sqlalchemy.exc import IntegrityError
+
 from models import Events
 from schemas import events
 
@@ -15,9 +17,13 @@ def post_event_data(event_payload: events.post_event_payload) -> Events:
     new_event = Events(**event_payload)
 
     with LocalSession() as session:
-        session.add(new_event)
-        session.commit()
+        try:
+            session.add(new_event)
+            session.commit()
 
-        session.refresh(new_event)
+            session.refresh(new_event)
+        except IntegrityError as e:
+            session.rollback()
+            raise 
 
     return new_event

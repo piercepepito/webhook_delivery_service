@@ -1,22 +1,19 @@
 import pytest
 
 from routers import events
+from sqlalchemy.exc import IntegrityError
 
 @pytest.mark.integration
-def test_create_event():
-        sample_payload = {
-        "type": "stock.below_reorder_point",
-        "occurred_at": "2026-09-18T09:14:22+08:00",
-        "payload": {
-            "sku": "FLOUR-BREAD-25KG",
-            "item_name": "Bread Flour 25kg",
-            "current_qty": 38,
-            "reorder_point": 40,
-            "unit": "bag",
-            "location": "A-12-3"
-        }
-        }
+def test_create_event(valid_type):
+        response = events.post_event_data(valid_type[0])
 
-        response = events.post_event_data(sample_payload)
+        assert response.payload == valid_type[0]["payload"]
 
-        assert response.payload == sample_payload["payload"]
+@pytest.mark.integration
+def test_create_event_invalid_input(valid_type):
+        """Purposefully sends incomplete data and should return an Integrity Error"""
+        valid_type = valid_type[0]
+        del valid_type["payload"]
+        
+        with pytest.raises(IntegrityError) as e:
+            events.post_event_data(valid_type)
