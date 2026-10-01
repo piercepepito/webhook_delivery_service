@@ -12,8 +12,6 @@ def valid_create_subscription_payload():
 
     return schemas.subscriptions.SubscriptionCreate(**payload_raw)
 
-
-
 @pytest.fixture
 def valid_https_url():
     return ["https://subdomain.example.co.uk", "https://api.example.com/v1/subscriptions", 
@@ -48,7 +46,7 @@ def invalid_event_types():
             "lot.expdfgired","lot.quarertined"]
 
 @pytest.fixture
-def valid_type():
+def valid_event_type():
     """Used for events table. A valid event type"""
     return [
         {
@@ -78,7 +76,7 @@ def valid_type():
     ]
 
 @pytest.fixture
-def invalid_type():
+def invalid_event_type():
     """Used for events table. A INVALID event type"""
     return [
         {
@@ -106,13 +104,6 @@ def invalid_type():
         }
         }
     ]
-
-@pytest.fixture
-def valid_deliveries_payload():
-    return {
-        "event_id":"f61b9712-bd9e-41c7-8f65-0163202c88f7",
-        "subscription_id":"faac781f-d620-4ece-a8af-91d82c746659"
-    }
 
 @pytest.fixture
 def valid_delivery_attempt_payload():
