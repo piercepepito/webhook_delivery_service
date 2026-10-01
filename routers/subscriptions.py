@@ -4,6 +4,7 @@ from models import Subscriptions
 from db import LocalSession
 
 from schemas import subscriptions
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, DataError
@@ -22,8 +23,8 @@ def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
     plain_secret = secrets.token_urlsafe(32)
 
     new_sub=Subscriptions(
-        url=payload["url"],
-        event_types=payload["event_types"],
+        url=str(payload.url),
+        event_types=payload.event_types,
         secret=plain_secret 
     )
 
@@ -35,7 +36,7 @@ def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
 
     return new_sub
 
-def get_subscription(subscription_id: str) -> dict:
+def get_subscription(subscription_id: UUID) -> Subscriptions:
     """
     Get the subscription row using id
 
@@ -43,7 +44,7 @@ def get_subscription(subscription_id: str) -> dict:
     subscription_id: id used to filter out and capture the data
 
     returns:
-    - a singular row all placed under a single dictionary
+    - an ORM SubscriptionRead Object
     """
     with LocalSession() as session:
         stmt = select(Subscriptions).where(
@@ -56,16 +57,8 @@ def get_subscription(subscription_id: str) -> dict:
             raise ValueError(f"Improper UUID format")
         except NoResultFound as e:
             raise ValueError("No Id found from input")
-
-    subscription_dict = {}
-    if subscription:
-        subscription_dict["id"] = subscription.id
-        subscription_dict["created_at"] = subscription.created_at
-        subscription_dict["event_types"] = subscription.event_types
-        subscription_dict["url"] = subscription.url
-        subscription_dict["active"] = subscription.active
         
-    return subscription_dict
+    return subscription
 
 def get_subscription_url(type: str) -> list[Subscriptions]:
     """part of @app.post /v1/events. Used to get the url from the type in events table. Mainly for fan out.

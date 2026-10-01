@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, ConfigDict
 
 from datetime import datetime
 from uuid import UUID
@@ -11,6 +11,8 @@ load_dotenv()
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 
 class SubscriptionCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     """Request body to create a subscription"""
     url: HttpUrl = Field(description="Must be HTTPS")
     event_types: list[str] = Field(description="e.g. ['stock.below_reorder_point', 'lot.expiring_soon']")
@@ -39,7 +41,7 @@ class SubscriptionRead(SubscriptionCreate):
     active: bool
     created_at: datetime
 
-class SubscriptionCreated(BaseModel):
+class SubscriptionCreated(SubscriptionRead):
     """
     A newly created subscription. The secret key will ONLY be given once during this phase.
     """
