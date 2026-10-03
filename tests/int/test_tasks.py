@@ -5,16 +5,25 @@ from worker import tasks
 
 from tests import helpers
 
+import schemas
+
 @pytest.mark.integration
 class TestDelivery:
-    def test_delivery_valid_1st_attempt(self, valid_deliveries_payload):
+    def test_delivery_valid_1st_attempt(self, valid_create_subscription_payload, valid_event_type):
         """
         Verifies that the delivery func would succesfully send the data without any retries
 
         Args:
-        valid_deliveries_payload
         """
-        delivery_data = deliveries.post_new_delivery(valid_deliveries_payload)
+        new_subscription = subscriptions.create_subscription(valid_create_subscription_payload)
+        new_event = events.post_event_data(valid_event_type[0])
+    
+        delivery_payload = {
+            "event_id": new_event.id,
+            "subscription_id": new_subscription.id
+            }
+
+        delivery_data = deliveries.post_new_delivery(delivery_payload)
 
         destination_url = "http://127.0.0.1:8000/webhook"
         webhook_payload = {
@@ -33,14 +42,22 @@ class TestDelivery:
         assert deliver_response["delivery_id"] == str(delivery_data.id)
         assert deliver_response["status"] == "succeeded"
 
-    def test_delivery_within_retry(self,valid_deliveries_payload):
+    def test_delivery_within_retry(self, valid_create_subscription_payload, valid_event_type):
         """
         Verifies that delivery will succesfully createa delivery attempt n times, and updates the delivery row.
         
         Args:
         valid_deliveries_payload
         """
-        delivery_data = deliveries.post_new_delivery(valid_deliveries_payload)
+        new_subscription = subscriptions.create_subscription(valid_create_subscription_payload)
+        new_event = events.post_event_data(valid_event_type[0])
+    
+        delivery_payload = {
+            "event_id": new_event.id,
+            "subscription_id": new_subscription.id
+            }
+        
+        delivery_data = deliveries.post_new_delivery(delivery_payload)
 
         destination_url = "http://127.0.0.1:8000/webhook/retry-test"
         webhook_payload = {
@@ -57,15 +74,22 @@ class TestDelivery:
 
         assert deliver_response["delivery_id"] == str(delivery_data.id)
 
-    def test_all_failed(self,valid_deliveries_payload):
+    def test_all_failed(self, valid_create_subscription_payload, valid_event_type):
         """
         Verifies that the status of the delivery should be 'exhausted' and has reached max retries which
         should be shown as 6 as attempt no
 
         Args:
-        valid_deliveries_payload
         """
-        delivery_data = deliveries.post_new_delivery(valid_deliveries_payload)
+        new_subscription = subscriptions.create_subscription(valid_create_subscription_payload)
+        new_event = events.post_event_data(valid_event_type[0])
+    
+        delivery_payload = {
+            "event_id": new_event.id,
+            "subscription_id": new_subscription.id
+            }
+        
+        delivery_data = deliveries.post_new_delivery(delivery_payload)
         
         destination_url = "http://127.0.0.1:8000/webhook/all-fail"
         webhook_payload = {
@@ -83,12 +107,19 @@ class TestDelivery:
         assert deliver_response["delivery_id"] == str(delivery_data.id)
         assert deliver_response["status"] == "exhausted"
 
-    def test_slow_server_response(self,valid_deliveries_payload):
+    def test_slow_server_response(self,valid_create_subscription_payload, valid_event_type):
         """
         When server is too slow to respond, then the webhook shouldn't be able to succesfully send the request
         and update the delivery row status as 'exhausted'
         """
-        delivery_data = deliveries.post_new_delivery(valid_deliveries_payload)
+        new_subscription = subscriptions.create_subscription(valid_create_subscription_payload)
+        new_event = events.post_event_data(valid_event_type[0])
+    
+        delivery_payload = {
+            "event_id": new_event.id,
+            "subscription_id": new_subscription.id
+            }
+        delivery_data = deliveries.post_new_delivery(delivery_payload)
         
         destination_url = "http://127.0.0.1:8000/webhook/slow"
         webhook_payload = {
@@ -108,12 +139,13 @@ class TestDelivery:
 
 @pytest.mark.integration
 class TestFanOut:
-    def test_fan_out_single_subscription_match(self, valid_subscription_payload):
+    def test_fan_out_single_subscription_match(self, clean_database, valid_subscription_payload): 
         """
         Verifies that fan_out creates a delivery for a single matching subscription
         and queues the webhook delivery task.
         """
-        new_subscription = subscriptions.create_subscription(valid_subscription_payload[1])
+        subscription_payload = schemas.subscriptions.SubscriptionCreate(**valid_subscription_payload[1])
+        new_subscription = subscriptions.create_subscription(subscription_payload) 
 
         event_input = {
             "type": "asset.decommissioned",
@@ -136,13 +168,15 @@ class TestFanOut:
         subscription_exist = subscriptions.get_subscription_url("asset.decommissioned")
         assert len(subscription_exist) == 1
 
-    def test_multiple_matching_subscriptions(self, valid_subscription_payload):
+    def test_multiple_matching_subscriptions(self, clean_database, valid_subscription_payload):
         """
         Verifies that fan_out creates a delivery for multiple matching subscription
         and queues the webhook delivery task.
         """
+        
         for subscription_payload in valid_subscription_payload:
-            _  = subscriptions.create_subscription(subscription_payload)
+            valid_sub_payload = schemas.subscriptions.SubscriptionCreate(**subscription_payload)
+            _  = subscriptions.create_subscription(valid_sub_payload)
         
         event_input = {
             "type": "asset.serial_registered",
@@ -162,9 +196,9 @@ class TestFanOut:
             assert row["status"] == "pending" 
 
         subscription_exist = subscriptions.get_subscription_url("asset.serial_registered")
-        assert len(subscription_exist) == 3
+        assert len(subscription_exist) == 2
 
-    def test_no_matching_subscription(self):
+    def test_no_matching_subscription(self, clean_database):
         """
         fan_out should raise an error when no matching subscription url is returned
         """
@@ -184,7 +218,7 @@ class TestFanOut:
         with pytest.raises(ValueError, match="Unable to find url destination from given event type") as e:
             task_result.get(propagate=True)
 
-    def test_mixed_results(self):
+    def test_mixed_results(self, clean_database):
             """
             Creates 2 examples wherein 1 succeeds, and another fails. The celery task should show 1 exhausted an another 
             succeeded delivery rows.
@@ -192,12 +226,14 @@ class TestFanOut:
             mixed_sub_results= [
                 {"url": "http://127.0.0.1:8000/webhook",
                 "event_types": ["asset.serial_registered"]},
-                {"url": "/webhook/all-fail",
+                {"url": "http://127.0.0.1:8000/webhook/all-fail",
                 "event_types": ["asset.serial_registered", "asset.decommissioned"]},
             ]
 
             for subscription_payload in mixed_sub_results:
-                        _  = subscriptions.create_subscription(subscription_payload)
+                    print(subscription_payload)
+                    valid_sub_payload = schemas.subscriptions.SubscriptionCreate(**subscription_payload)
+                    _  = subscriptions.create_subscription(valid_sub_payload)
                     
             event_input = {
                         "type": "asset.serial_registered",
@@ -225,7 +261,7 @@ class TestFanOut:
                 subscription_result = subscriptions.get_subscription(item["subscription_id"])
                 delivery_data = deliveries.get_delivery(item["delivery_id"])
 
-                expected_status =  "succeeded" if subscription_result["url"] == SUCCESS_URL else "exhausted"   
+                expected_status =  "succeeded" if subscription_result.url == SUCCESS_URL else "exhausted"   
 
                 assert delivery_data.status == expected_status
 

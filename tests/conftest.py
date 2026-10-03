@@ -3,6 +3,8 @@ import pytest
 import random
 import schemas
 
+from tests import helpers
+
 @pytest.fixture
 def valid_create_subscription_payload():
     payload_raw = {
@@ -119,6 +121,7 @@ def valid_delivery_attempt_with_error_codes():
     random_duration = random.randint(400,700)
 
     return {
+        "delivery_id":"e99838e3-21c0-4bf0-b173-7e74d0fbddaa",
         "duration_ms": random_duration,
         "attempt_no": 1,
         "status_code":403,
@@ -143,3 +146,7 @@ def valid_subscription_payload():
         {"url": "http://127.0.0.1:8000/webhook",
         "event_types": ["asset.serial_registered", "asset.decommissioned"]},
     ]
+
+@pytest.fixture
+def clean_database():
+    helpers.database_cleanup()

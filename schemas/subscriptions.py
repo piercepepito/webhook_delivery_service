@@ -8,7 +8,7 @@ from event_catalog import EVENT_TYPES
 from dotenv import load_dotenv
 import os
 load_dotenv()
-ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 class SubscriptionCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
