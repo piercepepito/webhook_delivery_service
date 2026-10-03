@@ -2,8 +2,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from worker import webhook
+from worker import webhook, exceptions
 from requests import RequestException
+import requests
 
 @patch("worker.webhook.webhook_signature")
 @patch("worker.webhook.requests")
@@ -30,7 +31,7 @@ def test_webhook_valid_payload(mock_requests, mock_signature):
     assert response[0] == sample_output
     assert response[1] > 0
 
-@patch("worker.webhook.webhook_signature")
+@patch("worker.webhook.webhook_signature.generate_signature")
 @patch("worker.webhook.requests.post")
 def test_webhook_connection_error(mock_requests, mock_signature):
         """
@@ -44,12 +45,13 @@ def test_webhook_connection_error(mock_requests, mock_signature):
 
         mock_signature.return_value = "hexadecimal_string"
 
-        sample_output = Mock()
-        mock_requests.return_value = sample_output
+        #sample_output = Mock()
+        #mock_requests.return_value = sample_output
 
-        sample_output.raise_for_status.side_effect = RequestException("Connection Failed")
+        mock_requests.side_effect = requests.exceptions.ConnectionError(
+        "Connection Failed")
 
-        with pytest.raises(RequestException):
+        with pytest.raises(exceptions.WebDeliveryError):
             webhook.deliver_webhook(url, payload, secret)
 
         expected_headers = {
@@ -57,4 +59,7 @@ def test_webhook_connection_error(mock_requests, mock_signature):
             "Content-Type":"application/json"
         }
 
-        mock_requests.assert_called_once_with(url, payload, expected_headers)
+        mock_requests.assert_called_once_with(url, 
+                                              json=payload, 
+                                              headers=expected_headers,
+                                              timeout=(3,5))

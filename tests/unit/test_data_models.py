@@ -57,14 +57,14 @@ class TestSubscriptionCreate:
                 assert str(error.value) == f"The following events does not exist: {event_type}"
 
 class TestEvents:
-    def test_valid_type_validation(self, valid_type):
-        for payload_event in valid_type:
+    def test_valid_type_validation(self, valid_event_type):
+        for payload_event in valid_event_type:
             response = events.post_event_payload(**payload_event)
 
             assert str(response.type) == payload_event["type"]
 
-    def test_invalid_type_validation(self, invalid_type):
-        for payload_event in invalid_type:
+    def test_invalid_type_validation(self, invalid_event_type):
+        for payload_event in invalid_event_type:
             with pytest.raises(ValidationError) as error:
                 response = events.post_event_payload(**payload_event)
 
