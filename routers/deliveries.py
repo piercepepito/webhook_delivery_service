@@ -3,8 +3,9 @@ from db import LocalSession
 from models import Deliveries
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, NoResultFound
 
+from routers import exceptions
 import schemas.deliveries
 from typing import Literal
 from uuid import UUID
@@ -47,6 +48,10 @@ def get_delivery(delivery_id:UUID) -> Deliveries:
             result = session.execute(stmt)
             delivery_data = result.scalar_one()
             return delivery_data
+
+        except NoResultFound:
+            raise exceptions.DeliveryNotFoundError("Invalid Delivery ID")
+        
         except IntegrityError as e:
             session.rollback()
             raise
