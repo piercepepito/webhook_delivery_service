@@ -1,4 +1,4 @@
-from celery import Celery, shared_task
+from celery import Celery
 
 from routers import subscriptions, events, deliveries, delivery_attempts
 
