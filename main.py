@@ -1,8 +1,10 @@
 from routers import subscriptions
+from worker import tasks
 
 from fastapi import FastAPI, HTTPException, status
 
 import schemas
+from schemas import tasks as task_schema
 from uuid import UUID
 
 app = FastAPI()
@@ -29,5 +31,12 @@ def get_subscription_from_id(subscription_id: UUID):
             detail=str(e)
         ) from e
 
+@app.post("/v1/events",
+          status_code= status.HTTP_201_CREATED,
+          response_model=list[task_schema.FanOutSent])
+def send_payload(
+     event_payload: schemas.events.post_event_payload):
+        
+    return tasks.fan_out(event_payload.model_dump())
 
 
