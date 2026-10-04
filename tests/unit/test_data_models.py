@@ -70,3 +70,11 @@ class TestEvents:
 
                 assert str(error.value) == f"{payload_event["type"]} not part of event catalog"
 
+class TestSubscriptionUpdate:
+    def test_empty_type(self):
+        input_payload = {}
+        with pytest.raises(ValueError) as e:
+            subscriptions.SubscriptionUpdate(**input_payload)
+
+            assert e == "At least one field must be provided"
+
