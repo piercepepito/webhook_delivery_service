@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, HttpUrl, field_validator, ConfigDict
+from pydantic import BaseModel, Field, HttpUrl, field_validator, ConfigDict, model_validator
 
 from datetime import datetime
 from uuid import UUID
@@ -46,3 +46,31 @@ class SubscriptionCreated(SubscriptionRead):
     A newly created subscription. The secret key will ONLY be given once during this phase.
     """
     secret: str = Field(description="Will only be given once")
+
+class SubscriptionUpdate(BaseModel):
+    event_types: list[str] | None = None 
+    url: HttpUrl | None = None
+
+    @model_validator(mode="after")
+    def check_at_least_one_field(self):
+        if self.url is None and self.event_types is None:
+            raise ValueError("At least one field must be provided")
+        return self
+
+    @field_validator("event_types")
+    @classmethod
+    def check_event(cls, v:list[str]) -> list[str]:
+        unkown = set(v) - EVENT_TYPES
+        if unkown:
+            raise ValueError(f"The following events does not exist: {unkown}")
+        return v
+
+    @field_validator("url")
+    @classmethod
+    def check_url(cls, v: HttpUrl) -> HttpUrl:
+        if (v.scheme == "https"):
+            return v
+        elif (ENVIRONMENT=="development") and (v.host in {"localhost", "127.0.0.1"}):
+            return v
+        else:
+            raise ValueError("HTTPS scheme is required")
