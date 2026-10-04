@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound, DataError, IntegrityError
 
 from event_catalog import EVENT_TYPES
+from routers import exceptions
 
 def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
     """
@@ -89,6 +90,8 @@ def update_subscription(subscription_id: UUID,
         try:
             subscription = session.get(Subscriptions, subscription_id)
 
+            if subscription is None:
+                raise exceptions.SubscriptionNotFoundError("Subscription not found")
             if subscription_data.event_types:
                  subscription.event_types = subscription_data.event_types
             if subscription_data.url:
