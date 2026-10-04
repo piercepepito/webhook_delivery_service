@@ -1,4 +1,4 @@
-from routers import subscriptions
+from routers import subscriptions, exceptions
 from worker import tasks
 
 from fastapi import FastAPI, HTTPException, status
@@ -39,4 +39,18 @@ def send_payload(
         
     return tasks.fan_out(event_payload.model_dump())
 
-
+@app.patch(
+    "/v1/subscriptions/{subscription_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=schemas.subscriptions.SubscriptionRead)
+def update_subscription(
+    subscription_id: UUID,
+    subscription_data: schemas.subscriptions.SubscriptionUpdate
+    ):
+    try:
+        return subscriptions.update_subscription(subscription_id, subscription_data)
+    except exceptions.SubscriptionNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
