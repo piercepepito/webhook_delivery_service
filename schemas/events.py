@@ -1,8 +1,10 @@
-from pydantic import BaseModel, Field, field_validator, AwareDatetime
+from pydantic import BaseModel, Field, field_validator, AwareDatetime, ConfigDict
 
 import event_catalog
 
 class post_event_payload(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     type: str = Field(description="an actual event that is part of the event catalog")
     payload: dict = Field(description="the data that should be sent to the subscription")
     occurred_at: AwareDatetime = Field(description="when the event happened")
