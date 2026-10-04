@@ -7,7 +7,9 @@ from schemas import subscriptions
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.exc import NoResultFound, DataError
+from sqlalchemy.exc import NoResultFound, DataError, IntegrityError
+
+from event_catalog import EVENT_TYPES
 
 def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
     """
@@ -80,3 +82,22 @@ def get_subscription_url(type: str) -> list[Subscriptions]:
             raise ValueError("Unable to find url destination from given event type")
 
         return subscription_data
+
+def update_subscription(subscription_id: UUID, 
+                        subscription_data: subscriptions.SubscriptionUpdate) -> Subscriptions:    
+    with LocalSession() as session:
+        try:
+            subscription = session.get(Subscriptions, subscription_id)
+
+            if subscription_data.event_types:
+                 subscription.event_types = subscription_data.event_types
+            if subscription_data.url:
+                 subscription.url = str(subscription_data.url)
+            
+            session.commit()
+            session.refresh(subscription)
+            return subscription
+    
+        except IntegrityError as e:
+            session.rollback() 
+            raise
