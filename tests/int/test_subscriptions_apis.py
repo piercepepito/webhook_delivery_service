@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from main import app
 
 from routers import subscriptions
+from uuid import uuid4
 
 client = TestClient(app=app)
 
@@ -85,3 +86,38 @@ class TestGetSubscription:
             "/v1/subscriptions/550e8400446655440000"
         )
         assert response.status_code == 422
+
+class TestPatchSubscription:
+    def test_valid_patch_subscription(self, valid_create_subscription_payload):
+        payload = valid_create_subscription_payload
+        new_sub = subscriptions.create_subscription(payload)
+
+        api_url = f"/v1/subscriptions/{str(new_sub.id)}"
+        input_payload = {
+                "event_types":["asset.serial_registered"],
+                "url": "https://subdomain.example.co"
+                }
+        
+        response = client.patch(
+            url= api_url,
+            json= input_payload
+        )
+
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "secret" not in data
+
+    def test_invalid_patch_subscription(self):
+        fake_id = str(uuid4())
+        
+        api_url = f"/v1/subscriptions/{fake_id}"
+        print(api_url)
+        input_payload = {
+                "event_types":["asset.serial_registered"],
+                "url": "https://subdomain.example.co"
+                }
+
+        response =client.patch(url= api_url, json= input_payload)
+
+        assert response.status_code == 404

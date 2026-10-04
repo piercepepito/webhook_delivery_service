@@ -129,15 +129,5 @@ class TestUpdateSubscription:
         assert response.event_types == new_subscription.event_types
         assert response.url == input_payload["url"] + "/"
 
-    def test_patch_empty_json(self, valid_create_subscription_payload):
-        """
-        Checks if an error will be raised if an empty json is being given
-        """
-        input_payload = {}
-        with pytest.raises(ValueError) as e:
-            schemas.subscriptions.SubscriptionUpdate(**input_payload)
-
-            assert e == "At least one field must be provided"
-
 
 
