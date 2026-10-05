@@ -23,10 +23,10 @@ class TestGetDelivery:
 
         delivery_url = f"/v1/deliveries/{str(new_delivery.id)}"
         response = client.get(delivery_url)
-        print(response.json())
+  
         assert response.status_code == 200
 
-    def test_invalid_input(self, valid_create_subscription_payload, valid_event_type):
+    def test_invalid_input(self):
         fake_uuid = str(uuid4())
 
         delivery_url = f"/v1/deliveries/{fake_uuid}"
