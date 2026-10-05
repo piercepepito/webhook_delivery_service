@@ -8,7 +8,7 @@ from tests import helpers
 @pytest.fixture
 def valid_create_subscription_payload():
     payload_raw = {
-    "url": "https://cascade.example.com/hooks/wms",
+    "url": "http://127.0.0.1:8000/webhook",
     "event_types": ["stock.below_reorder_point", "lot.expiring_soon"],
     }
 

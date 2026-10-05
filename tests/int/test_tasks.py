@@ -1,7 +1,8 @@
 import pytest
 
+from database import data_retrieval
 from routers import deliveries, subscriptions, events
-from worker import tasks
+from worker import tasks, exceptions
 
 from tests import helpers
 
@@ -265,7 +266,38 @@ class TestFanOut:
 
                 assert delivery_data.status == expected_status
 
+@pytest.mark.integration
+class TestRetryDelivery:
+    def test_retry_succesful(self, valid_create_subscription_payload, valid_event_type):
+        new_subscription = subscriptions.create_subscription(valid_create_subscription_payload)
+        new_event = events.post_event_data(valid_event_type[0])
+    
+        delivery_payload = {
+            "event_id": new_event.id,
+            "subscription_id": new_subscription.id
+            }
 
-                 
+        delivery_data = deliveries.post_new_delivery(delivery_payload)
+        
+        response = tasks.retry_delivery(delivery_data.id)
 
+        assert response["delivery_id"] == str(delivery_data.id)
+        assert response["status"] == "succeeded"
 
+    def test_id_succesful(self, valid_create_subscription_payload, valid_event_type):
+            """
+            Validates by by checking if the retry function would raise an error if delivery id status is already succesful
+            """
+            new_subscription = subscriptions.create_subscription(valid_create_subscription_payload)
+            new_event = events.post_event_data(valid_event_type[0])
+        
+            delivery_payload = {
+                "event_id": new_event.id,
+                "subscription_id": new_subscription.id,
+                "status":"succeeded"
+                }
+    
+            delivery_data = deliveries.post_new_delivery(delivery_payload)
+
+            with pytest.raises(exceptions.InvalidDeliveryIdError) as e:
+                tasks.retry_delivery(delivery_data.id)

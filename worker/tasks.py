@@ -3,11 +3,12 @@ from celery import Celery
 from routers import subscriptions, events, deliveries, delivery_attempts
 
 import schemas
+from uuid import UUID
 
 from worker import webhook, celery_app, exceptions
 
 from requests import RequestException
-from database import delivery_and_attempts
+from database import delivery_and_attempts, data_retrieval
 
 @celery_app.celery_app.task
 def fan_out(event_payload: schemas.events.post_event_payload) -> list[dict]:
@@ -104,3 +105,32 @@ def delivery(self, destination_url: str, webhook_payload: dict, delivery_id, sec
             seconds = wait
 
             return  delivery_and_attempts.message_sent_attempt(input_payload, deliver_status, seconds) 
+
+def retry_delivery(delivery_id: UUID) -> dict:
+    """
+    Retries sending a failed delivery
+    """
+    delivery_return, event_return, subscription_return = data_retrieval.pull_for_retry_func(delivery_id)
+
+    if delivery_return.status == "succeeded":
+        raise exceptions.InvalidDeliveryIdError(f"Delivery ID: {delivery_return.id}, has already been sent succesfully")
+
+    webhook_response, duration_ms = webhook.deliver_webhook(subscription_return.url, 
+                                                            event_return.payload, 
+                                                            subscription_return.secret)
+    
+    delivery_attempt_payload = {
+        "delivery_id":delivery_return.id,
+        "attempt_no":delivery_return.attempt_count + 1,
+        "duration_ms": duration_ms
+
+    }
+    
+    if 200 <= webhook_response.status_code < 300:
+        deliver_status = "succeeded"
+        seconds = 0
+    else:
+        deliver_status = "exhausted"
+        seconds = 0
+
+    return delivery_and_attempts.message_sent_attempt(delivery_attempt_payload, deliver_status, seconds)
