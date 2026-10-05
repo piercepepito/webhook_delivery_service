@@ -1,4 +1,6 @@
 from routers import subscriptions, exceptions, deliveries
+
+import worker
 from worker import tasks
 
 from fastapi import FastAPI, HTTPException, status
@@ -67,6 +69,9 @@ def update_subscription(
          response_model=schemas.deliveries.DeliveryGet)
 def get_delivery_status(
     delivery_id: UUID):
+    """
+    Get the delivery row from delivery id
+    """
     try:
         return deliveries.get_delivery(delivery_id)
     
@@ -75,3 +80,15 @@ def get_delivery_status(
             status_code= 404,
             detail=str(e)
         )
+
+@app.post("/v1/deliveries/retry/{delivery_id}",
+        status_code=status.HTTP_200_OK,
+        response_model=schemas.tasks.RetryDelivery)
+def retry_failed_delivery(delivery_id: UUID):
+    try:
+        return tasks.retry_delivery(delivery_id)
+    except worker.exceptions.InvalidDeliveryIdError as e:
+        raise HTTPException(
+            status_code=status.HTTP_406_NOT_ACCEPTABLE,
+            detail =str(e)
+        ) from e
