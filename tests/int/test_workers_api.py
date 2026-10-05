@@ -1,7 +1,7 @@
 import pytest
 
 from worker import tasks
-from routers import subscriptions
+from routers import subscriptions, events, deliveries
 
 import schemas
 
@@ -63,3 +63,44 @@ def test_invalid_input_data(clean_database, valid_subscription_payload):
     )
 
     assert response.status_code == 422
+
+@pytest.mark.integration
+def test_retry_valid_input(valid_create_subscription_payload, valid_event_type):
+    """
+    Testing the retry function
+    """
+    new_subscription = subscriptions.create_subscription(valid_create_subscription_payload)
+    new_event = events.post_event_data(valid_event_type[0])
+
+    delivery_payload = {
+        "event_id": new_event.id,
+        "subscription_id": new_subscription.id
+        }
+
+    new_delivery = deliveries.post_new_delivery(delivery_payload)
+
+    url=f"/v1/deliveries/retry/{new_delivery.id}"
+    response = client.post(url=url)
+
+    assert response.status_code == 200
+
+@pytest.mark.integration
+def test_retry_succesful_delivery(valid_create_subscription_payload, valid_event_type):
+    """
+    Tests the retry function when a succesful delivery id has already been done. It should return a 406 error
+    """
+    new_subscription = subscriptions.create_subscription(valid_create_subscription_payload)
+    new_event = events.post_event_data(valid_event_type[0])
+
+    delivery_payload = {
+        "event_id": new_event.id,
+        "subscription_id": new_subscription.id,
+        "status":"succeeded"
+        }
+
+    new_delivery = deliveries.post_new_delivery(delivery_payload)
+
+    url=f"/v1/deliveries/retry/{new_delivery.id}"
+    response = client.post(url=url)
+
+    assert response.status_code == 406
