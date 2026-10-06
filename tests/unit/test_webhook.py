@@ -6,9 +6,10 @@ from worker import webhook, exceptions
 from requests import RequestException
 import requests
 
+@patch("worker.webhook.encryption")
 @patch("worker.webhook.webhook_signature")
 @patch("worker.webhook.requests")
-def test_webhook_valid_payload(mock_requests, mock_signature):
+def test_webhook_valid_payload(mock_requests, mock_signature, mock_encryption):
     """
     Verifies that a valid webhook response returns the HTTP response and the request
     duration in milliseconds
@@ -17,7 +18,6 @@ def test_webhook_valid_payload(mock_requests, mock_signature):
     payload = {
         "name": "John"
     }
-    secret = "some_secret_key"
 
     mock_signature.return_value = "hexadecimal_string"
 
@@ -26,14 +26,19 @@ def test_webhook_valid_payload(mock_requests, mock_signature):
 
     sample_output.raise_for_status.return_value = None
 
+    secret = "some_secret_key"
+    mock_encryption.decrypt_keys.return_value = secret
+
     response = webhook.deliver_webhook(url, payload, secret)
 
     assert response[0] == sample_output
     assert response[1] > 0
 
+
+@patch("worker.webhook.encryption")
 @patch("worker.webhook.webhook_signature.generate_signature")
 @patch("worker.webhook.requests.post")
-def test_webhook_connection_error(mock_requests, mock_signature):
+def test_webhook_connection_error(mock_requests, mock_signature, mock_encryption):
         """
         Verifies that an error would occur, whenever there'e a failed connection
         """
@@ -41,12 +46,11 @@ def test_webhook_connection_error(mock_requests, mock_signature):
         payload = {
             "name": "John"
         }
-        secret = "some_secret_key"
 
         mock_signature.return_value = "hexadecimal_string"
 
-        #sample_output = Mock()
-        #mock_requests.return_value = sample_output
+        secret = "some_secret_key"
+        mock_encryption.decrypt_keys.return_value = secret
 
         mock_requests.side_effect = requests.exceptions.ConnectionError(
         "Connection Failed")
