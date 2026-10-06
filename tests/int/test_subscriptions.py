@@ -8,9 +8,9 @@ import schemas
 
 @pytest.mark.integration
 class TestCreateSubscription:
-    def test_create_subscription(valid_create_subscription_payload):
+    def test_create_subscription(self, valid_create_subscription_payload):
         payload = valid_create_subscription_payload
-
+        print(payload)
         response = subscriptions.create_subscription(payload)
 
         expected = {
@@ -28,7 +28,7 @@ class TestCreateSubscription:
 
 @pytest.mark.integration
 class TestGetSubscription:
-    def test_get_subscription_valid_uuid_in_db(valid_create_subscription_payload):
+    def test_get_subscription_valid_uuid_in_db(self, valid_create_subscription_payload):
         """
         Tests if function can get the proper dataset from the id.
         Expected to only recieve a single row. Internal usage only
@@ -41,7 +41,7 @@ class TestGetSubscription:
         assert response.id == new_subscription.id
         assert hasattr(response, "secret")
 
-    def test_get_subscription_invalid_uuid():
+    def test_get_subscription_invalid_uuid(self):
         """
         from an invalid uuid input, a Dataerror should occur
         """
@@ -50,14 +50,14 @@ class TestGetSubscription:
 
         assert str(error.value) == "Improper UUID format"
 
-    def test_get_subscription_id_not_found():
+    def test_get_subscription_id_not_found(self):
         """a no result found error should occur from an id never found in the table"""
         with pytest.raises(ValueError) as error:
             subscriptions.get_subscription("faac781f-d620-4ece-1111-91d82c741111")
 
         assert str(error.value) == "No Id found from input"
 
-    def test_get_subscription_url_invalid_type():
+    def test_get_subscription_url_invalid_type(self):
         """Running get_subscrition_url func with a type never found in the subscriptions table"""
         with pytest.raises(ValueError) as error:
             subscriptions.get_subscription_url("fake.event_no_exist")
@@ -66,7 +66,7 @@ class TestGetSubscription:
 
 @pytest.mark.integration
 class TestSubscriptionUrl:
-    def test_get_subscription_url_valid_type(valid_create_subscription_payload):
+    def test_get_subscription_url_valid_type(self, valid_create_subscription_payload):
         """Running get_subscrition_url func with a type that exists in the subscriptio ns table"""
         payload = valid_create_subscription_payload
         new_subscription = subscriptions.create_subscription(payload)
