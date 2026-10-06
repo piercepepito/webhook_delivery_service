@@ -4,6 +4,8 @@ import time
 from utils import webhook_signature
 from worker import exceptions
 
+from encryption import encryption
+
 def deliver_webhook(url: str, webhook_payload: dict, secret_key: str) -> tuple[requests.Response, float]:
     """
     Delivers payload to the subscriber
@@ -16,7 +18,8 @@ def deliver_webhook(url: str, webhook_payload: dict, secret_key: str) -> tuple[r
         - the response of the POST request and
         - the duration of the function
     """
-    signature = webhook_signature.generate_signature(secret_key, webhook_payload)
+    secret_decrypt = encryption.decrypt_keys(secret_key)
+    signature = webhook_signature.generate_signature(secret_decrypt, webhook_payload)
 
     headers = {
         "X-Webhook-Signature":signature,
