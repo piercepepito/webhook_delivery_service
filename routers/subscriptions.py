@@ -39,6 +39,8 @@ def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
         session.commit()
 
         session.refresh(new_sub)
+    #plain secret should be given to the user
+    new_sub.secret = plain_secret
 
     return new_sub
 
