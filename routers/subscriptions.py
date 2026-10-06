@@ -12,6 +12,8 @@ from sqlalchemy.exc import NoResultFound, DataError, IntegrityError
 from event_catalog import EVENT_TYPES
 from routers import exceptions
 
+from encryption import encryption
+
 def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
     """
     Creates a subscription and generate a secret key
@@ -24,11 +26,12 @@ def create_subscription(payload: subscriptions.SubscriptionCreate) -> dict:
         dict: contains the response and the secret key
     """
     plain_secret = secrets.token_urlsafe(32)
+    encrypted_secret = encryption.encrypt_keys(plain_secret)
 
     new_sub=Subscriptions(
         url=str(payload.url),
         event_types=payload.event_types,
-        secret=plain_secret 
+        secret=encrypted_secret 
     )
 
     with LocalSession() as session:
