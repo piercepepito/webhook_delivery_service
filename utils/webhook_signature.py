@@ -3,12 +3,11 @@ import hashlib
 
 import json
 
-
 def generate_signature(secret: str, payload: dict) -> str:
     """
     Generates a signature from the secret and the payload
     Args:
-        secret: secret key of the subscription
+        secret: the decoded secret key of the subscription
         payload: the data being sent to the subscriber
     Returns:
     a hexadecimal string to be used as a header when doing POST to the subscriber
