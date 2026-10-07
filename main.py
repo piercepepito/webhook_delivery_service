@@ -43,7 +43,7 @@ def send_payload(
     Sends data to the destination url of the subscriber depending on the event type
     """
         
-    return tasks.fan_out(event_payload.model_dump())
+    return tasks.fan_out(event_payload.model_dump(mode="json"))
 
 @app.patch(
     "/v1/subscriptions/{subscription_id}",
