@@ -1,0 +1,21 @@
+# What `docker build .` does NOT send to the daemon.
+# Without this file, everything in the repo is uploaded as the build context.
+
+# Virtualenvs are tied to the interpreter and platform that created them.
+# A macOS/arm64 venv inside a Linux container is hundreds of MB and broken.
+.venv/
+venv/
+
+# Secrets. Anything sent as build context can end up in an image layer,
+# and layers are permanent -- a later delete does not remove the data.
+.env
+
+# Version control and caches
+.git/
+.gitignore
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# OS noise
+.DS_Store
