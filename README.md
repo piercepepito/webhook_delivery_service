@@ -4,18 +4,16 @@ Infrastructure that turns a business event into a **signed HTTP notification** d
 subscriber who registered. Retrying on failure and recording every attempt so delivery is
 observable.
 
-A producer posts one event. It never learns who received it, how many subscribers there were, or whether
-delivery succeeded. Everything downstream of that single HTTP call is this service's problem.
-
 ---
 
 ## The problem it solves
 
 Without this service, a producer that wants to notify consumers has to hold their URLs, know their
 retry policies, sign its own requests, and track what succeeded. Adding a consumer means editing and
-redeploying the producer.
+redeploying the producer. On top of the infrastructure the producer is making, the sending itself would 
+make it very cumbersome on there part.
 
-With it, the producer makes **one call** and is decoupled from its consumers:
+by using this, the producer makes **one call** and doesn't have to think about the other requirements needed to send to a customer.
 
 | | Without the service | With the service |
 |---|---|---|
@@ -24,6 +22,54 @@ With it, the producer makes **one call** and is decoupled from its consumers:
 | Retry logic | The producer's problem | The worker's |
 | Signing | The producer's problem | The worker's |
 | "Did it arrive?" | Nobody knows | The delivery log answers |
+
+---
+
+## Features
+
+### Subscription management
+
+- Create a subscription with a destination URL and the event types it wants to receive
+- Retrieve a subscription by id, and partially update it with `PATCH` without resending unchanged fields
+- A per-subscription HMAC signing secret, generated server-side and returned exactly once
+- Fan-out filters on `active`, so a disabled subscriber stops receiving deliveries without losing its history
+
+### Event ingest and fan-out
+
+- A **closed event catalog** validated at the API boundary — unknown types are rejected with `422` rather than silently matching nothing
+- Fan-out matches on event type, then creates one delivery row per match
+- An event with no matching subscribers produces zero deliveries.
+- `occurred_at` is recorded separately from `created_at`, so ingestion lag is measurable
+- `POST /v1/events` reports the fan-out result per delivery: delivery id, subscription id, task id
+
+### Delivery
+
+- A dedicated Celery worker performs the outbound HTTP.
+- **HMAC-SHA256** signature on every request via `X-Webhook-Signature`
+- **Exponential backoff** retries: 5s → 10s → 20s → 40s → 80s, capped at 5 retries
+- Explicit `timeout=(3, 5)` on outbound calls, so one slow receiver cannot occupy a worker indefinitely
+- `exhausted` is a recorded terminal state, not a discarded error. This only shows when retries have already been exhausted.
+- Manual re-attempt of a failed delivery via `POST /v1/deliveries/retry/{id}`, refusing with `406` if it already succeeded. This is used in case something in the server of the subscriber may have failed.
+
+### Security
+
+- Signing secrets **encrypted** with Fernet (authenticated encryption), decrypted only in the worker immediately before signing
+- The encryption key is held outside the database — encrypting with a key stored beside the data would protect nothing
+- Secrets returned once at creation and **excluded from every read response**, enforced by response models rather than by discipline
+- HTTPS-only destination URLs, with a development-only allowance for `localhost` and `127.0.0.1`
+
+### Observability
+
+- Every outbound call is logged to `delivery_attempts`: status code, truncated response body, error, duration
+- `status_code` is nullable, making *"the receiver returned an error"* distinguishable from *"we never reached them"*
+- Delivery status, attempt count and retry schedule are all queryable through the API
+
+### Data integrity
+
+- The event and all of its deliveries are written in **one transaction** — an orphaned event cannot exist
+- `delivery_attempts` is append-only with `UNIQUE (delivery_id, attempt_no)`, so a retried write cannot duplicate a row
+- Events are immutable and append-only — facts about the past, never updated
+- Subscriptions are deactivated rather than deleted, preserving referential history
 
 ---
 
@@ -56,26 +102,22 @@ Two independent processes that never call each other directly — they communica
 | PostgreSQL | — | Durable state: events, deliveries, attempts |
 | Redis | — | Celery broker and result backend |
 
-**The worker has no listening port.** It is a queue consumer and an HTTP *client* — it never receives
-requests. HTTP flows in two directions: producers → your API (inbound), and your worker → subscriber
-endpoints (outbound).
-
 ### Why the split matters
 
-The API responds in milliseconds without waiting on any outbound HTTP call. A subscriber being down for
-an hour does not slow the API, block other subscribers, or cause a lost event — the work waits in the
+The API responds without waiting on any outbound HTTP call. A subscriber being down for
+an hour does not slow the API, block other subscribers, or cause a lost event. The work waits in the
 queue and the delivery row holds the state.
 
 ---
 
 ## How an event flows
 
-**Inside the HTTP request (synchronous):**
+**Inside the HTTP request:**
 
 1. `POST /v1/events` validates the event type against the catalog
 2. The event row is inserted into `events`
 3. `subscriptions.get_subscription_url(type)` selects subscriptions whose `event_types` contain that
-   type **and** whose `active` is true
+   type
 4. One `deliveries` row is created per matching subscription
 5. One Celery task is enqueued per delivery
 6. `201 Created` is returned — the producer is done
@@ -90,7 +132,7 @@ queue and the delivery row holds the state.
 12. The `deliveries` row is updated — succeeded, or rescheduled for a retry
 
 The HTTP response at step 6 means **"recorded," not "delivered."** An event with zero matching
-subscriptions returns 201 and produces zero deliveries — filtering, not broadcasting.
+subscriptions returns 201 and produces zero deliveries.
 
 ---
 
@@ -101,7 +143,7 @@ subscriptions returns 201 and produces zero deliveries — filtering, not broadc
 | `POST` | `/v1/subscriptions` | 201 | `SubscriptionCreated` | Create a subscription; returns the signing secret **once** |
 | `GET` | `/v1/subscriptions/{id}` | 200 | `SubscriptionRead` | Fetch one subscription (never includes the secret) |
 | `PATCH` | `/v1/subscriptions/{id}` | 200 | `SubscriptionRead` | Partial update — `url` and/or `event_types` |
-| `POST` | `/v1/events` | 201 | `list[FanOutSent]` | Ingest an event and fan out |
+| `POST` | `/v1/events` | 201 | `list[FanOutSent]` | Creaetes an event and fan out |
 | `GET` | `/v1/deliveries/{id}` | 200 | `DeliveryGet` | Delivery status — the visibility endpoint |
 | `POST` | `/v1/deliveries/retry/{id}` | 200 | `RetryDelivery` | Manually re-attempt a delivery |
 
@@ -119,9 +161,8 @@ Validation rules:
 - `url` must be `https` — except `http://localhost` and `http://127.0.0.1` when `ENVIRONMENT=development`
 - `event_types` may not be empty, and every value must exist in the event catalog
 
-Returns `201` with the created subscription **including its signing secret**. This is the only moment the
-plaintext secret is ever available — it is encrypted at rest, excluded from every read response, and there
-is no rotation endpoint. Lose it and the subscription is unusable.
+Returns `201` with the created subscription **including its unencrypted secret**. This is the only moment the
+secret key is ever available. It is encrypted when stored in the database, excluded from every read response. Lose it and the subscription is unusable.
 
 ### `PATCH /v1/subscriptions/{id}`
 
@@ -130,7 +171,7 @@ is no rotation endpoint. Lose it and the subscription is unusable.
 ```
 
 Both fields are optional, but at least one must be present. Omitted fields are left unchanged.
-Subscriptions are **deactivated, never deleted** — a foreign key reveals that history references them.
+Subscriptions are **deactivated, never deleted**. A foreign key reveals from deliveries, shows that they are being referenced.
 
 ### `POST /v1/events`
 
@@ -180,9 +221,7 @@ events ─────────┘
 | `created_at` | TIMESTAMPTZ | When **we received** it |
 | `occurred_at` | TIMESTAMPTZ | When it **actually happened** |
 
-The two timestamps differ whenever a producer batches. `created_at - occurred_at` is the ingestion lag.
-
-**`deliveries`** — one row per (event × subscription). The unit of work.
+**`deliveries`** — one row per (event × subscription). 
 
 | Column | Type | Notes |
 |---|---|---|
@@ -208,8 +247,7 @@ The two timestamps differ whenever a producer batches. `created_at - occurred_at
 | `attempted_at` | TIMESTAMPTZ | |
 
 `status_code` is nullable by design: a refused connection has no HTTP status, and inventing `0` would be
-indistinguishable from a real one. Either the receiver answered (`status_code`) or the request never
-completed (`error`) — the two describe different failures and need different responses.
+indistinguishable from a real one.
 
 Splitting `deliveries` (mutable job state) from `delivery_attempts` (immutable history) is what makes the
 retry and audit story possible: one delivery, many attempts.
@@ -242,15 +280,8 @@ on every attempt:
 
 `wait = 5 * 2 ** retries`, capped at `max_retries = 5`.
 
-The doubling is the point. A receiver that is down for an hour gets retried at 5s, 10s, 20s, 40s — not
-every five seconds for sixty minutes. A fixed interval would keep hammering a service that is already
-struggling, and the retries themselves become the outage.
-
-`exhausted` is a real state, not a discarded error — it is what a dead-letter view would surface.
-
-Any non-2xx response, connection error, or timeout raises `WebDeliveryError`, which records the attempt
-and schedules the retry. `requests.post` uses `timeout=(3, 5)` — connect and read respectively — so one
-slow receiver cannot occupy a worker indefinitely.
+The doubling is the point. A receiver that is down for an hour gets retried at 5s, 10s, 20s, 40s. This is to ensure that 
+the retries themselves are not the ones causing the outage.
 
 `POST /v1/deliveries/retry/{id}` re-attempts synchronously. It refuses with `406` if the delivery already
 succeeded. A manual retry does not schedule further retries: the outcome is `succeeded` or `exhausted`.
@@ -262,17 +293,16 @@ succeeded. A manual retry does not schedule further retries: the outcome is `suc
 ### Secrets encrypted at rest
 
 Every subscription's signing secret is generated server-side with `secrets.token_urlsafe(32)` and
-encrypted with **Fernet** (AES-128-CBC + HMAC-SHA256, authenticated) before it touches the database.
+encrypted with **Fernet** before it touches the database.
 
-- The encryption key lives in `ENCRYPTION_KEY`, **never in the database** — otherwise encrypting would
+- The encryption key lives in `ENCRYPTION_KEY`, **never in the database**. Otherwise encrypting would
   protect nothing
 - The worker decrypts immediately before signing, and nowhere else
 - This protects against a leaked database dump, a backup, or secrets captured in logs. It does **not**
   protect against someone with access to the `.env` file
 
-Hashing would be wrong here: the secret must be reproduced on every delivery, so it must be recoverable.
-`Fernet` is used alone rather than `MultiFernet` — key rotation is a deliberate deferral, and the upgrade
-is a one-line change when it is needed.
+Since the secret must be used whenever a delivery is being done, hashing would be a wrong application here. 
+It must be recoverable, which is encryption was used for this application.
 
 ### HMAC signatures
 
@@ -302,11 +332,6 @@ HMAC provides **authenticity and integrity**, not confidentiality. It proves the
 someone holding the secret and was not altered in transit. It does not hide the payload; that is TLS's
 job, which is why subscriber URLs must be HTTPS.
 
-### Idempotency
-
-Delivery is **at-least-once**. A receiver that succeeds but whose response is lost will be retried and a
-duplicate is possible. Receivers should treat each event's `id` as an idempotency key.
-
 ---
 
 ## Event catalog
@@ -331,7 +356,14 @@ names the offending value.
 
 ## Configuration
 
-Create a `.env` in the project root (gitignored):
+Copy the template and fill in real values. `.env` is gitignored; `.env.example` is committed and holds
+no real credentials:
+
+```bash
+cp .env.example .env
+```
+
+Then set:
 
 ```
 DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>:5432/<db>
@@ -344,6 +376,7 @@ ENVIRONMENT=development
 | `DATABASE_URL` | PostgreSQL connection string. Use `postgresql+psycopg://` — psycopg 3, not psycopg2 |
 | `ENCRYPTION_KEY` | Fernet key for secret encryption |
 | `ENVIRONMENT` | `development` permits `http://localhost` and `http://127.0.0.1` as subscription URLs. Anything else requires HTTPS |
+| `REDIS_URL` | Celery broker and result backend. **Not read by the code yet** — `worker/celery_app.py` currently hardcodes `redis://localhost:6379/0` |
 
 Generate the encryption key **once, by hand**:
 
@@ -385,6 +418,66 @@ Redis is expected at `redis://localhost:6379/0` (configured in `worker/celery_ap
 
 ---
 
+## Docker
+
+The `Dockerfile` builds a **single image used by both processes**. The API and the worker are the same
+codebase; they differ only in the command they start with.
+
+```bash
+docker build -t webhook-delivery-service:local .
+```
+
+### What goes into the image
+
+| Included | Excluded, via `.dockerignore` |
+|---|---|
+| A `python:3.13-slim` base | `.venv/` — platform-specific and hundreds of MB |
+| Source code | **`.env` — secrets must never reach an image layer** |
+| Everything in `requirements.txt` | `.git/`, `__pycache__/`, `.pytest_cache/` |
+
+### Running the API
+
+```bash
+docker run --rm -p 8000:8000 --env-file .env webhook-delivery-service:local
+```
+
+The image's default command is uvicorn, so this starts the API. `--env-file .env` supplies
+`DATABASE_URL` and `ENCRYPTION_KEY` at runtime, from the host, without either entering the image.
+
+### Running the worker
+
+The same image with a different command — this pairing is the whole reason one build serves two
+processes:
+
+```bash
+docker run --rm --env-file .env webhook-delivery-service:local \
+  celery -A worker.celery_app worker --loglevel=info
+```
+
+Everything after the image name **replaces** the Dockerfile's `CMD`.
+
+> The worker needs a reachable Redis broker over a shared network. `worker/celery_app.py` currently
+> hardcodes `redis://localhost:6379/0`, which inside a container points at the container itself — so
+> this command will not connect until that value becomes configurable.
+
+### Four details worth knowing
+
+**`--host 0.0.0.0` in the CMD.** Uvicorn binds to `127.0.0.1` by default, which inside a container
+means *reachable only from inside this container*. The API would start cleanly and be completely
+unreachable from the host.
+
+**Exec form (`["uvicorn", ...]`), not a shell string.** Shell form makes `/bin/sh` PID 1, so SIGTERM
+goes to the shell and never reaches uvicorn — `docker stop` then waits out its timeout and force-kills
+the process instead of shutting it down cleanly.
+
+**Non-root by default.** The image creates `appuser` (uid 1000), switches to it, and copies source with
+`--chown` so ownership is correct as files land. Running as root is a standard security finding.
+
+**No `apt-get` at all.** psycopg 3, cryptography and cffi all resolve to prebuilt manylinux wheels, so
+there is nothing to compile. The resulting image is around 305 MB.
+
+---
+
 ## Testing
 
 ```bash
@@ -410,6 +503,9 @@ A Celery worker must be running for tests that assert on task execution.
 
 ```
 webhook_delivery_service/
+├── Dockerfile               Builds the image both processes run
+├── .dockerignore            What is kept out of the build context
+├── .env.example             Template for the runtime environment
 ├── main.py                  FastAPI app and all routes
 ├── db.py                    Engine, session factory, declarative Base
 ├── models.py                SQLAlchemy models — four tables
@@ -449,6 +545,9 @@ Deliberately deferred — listed so the gaps are visible rather than assumed:
 
 - **List endpoints** — `GET /v1/subscriptions` and `GET /v1/deliveries`. Today a client that loses an id
   can only recover it from the create response
+- **Deactivating a subscription** — the `active` column filters fan-out, but `SubscriptionUpdate` has no
+  `active` field, so nothing in the API can set it. Disabling a subscriber currently requires a direct
+  database update
 - **A retry sweeper** — retries currently rely on Celery's broker-side countdown. Moving `next_attempt_at`
   into a periodic poller would make retries survive a broker flush, and is what makes
   `deliveries.next_attempt_at` load-bearing
