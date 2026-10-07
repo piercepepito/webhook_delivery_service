@@ -4,6 +4,11 @@ Infrastructure that turns a business event into a **signed HTTP notification** d
 subscriber who registered. Retrying on failure and recording every attempt so delivery is
 observable.
 
+The demo showcases how a subscription registers, read and edit the existing subscription, post a new event,
+check the delivery status, and retry failed delivery attempts.
+
+![Webhook delivery service demo](docs/demo.gif)
+
 ---
 
 ## The problem it solves
@@ -460,22 +465,6 @@ Everything after the image name **replaces** the Dockerfile's `CMD`.
 > hardcodes `redis://localhost:6379/0`, which inside a container points at the container itself — so
 > this command will not connect until that value becomes configurable.
 
-### Four details worth knowing
-
-**`--host 0.0.0.0` in the CMD.** Uvicorn binds to `127.0.0.1` by default, which inside a container
-means *reachable only from inside this container*. The API would start cleanly and be completely
-unreachable from the host.
-
-**Exec form (`["uvicorn", ...]`), not a shell string.** Shell form makes `/bin/sh` PID 1, so SIGTERM
-goes to the shell and never reaches uvicorn — `docker stop` then waits out its timeout and force-kills
-the process instead of shutting it down cleanly.
-
-**Non-root by default.** The image creates `appuser` (uid 1000), switches to it, and copies source with
-`--chown` so ownership is correct as files land. Running as root is a standard security finding.
-
-**No `apt-get` at all.** psycopg 3, cryptography and cffi all resolve to prebuilt manylinux wheels, so
-there is nothing to compile. The resulting image is around 305 MB.
-
 ---
 
 ## Testing
@@ -483,7 +472,7 @@ there is nothing to compile. The resulting image is around 305 MB.
 ```bash
 pytest                          # everything
 pytest -m "not integration"     # unit tests only — no database required
-pytest tests/unit               # the fast suite
+pytest "integration"            # integration tests - uvicorn, celery, and redis should be turned on
 ```
 
 | Directory | Kind | Needs a database? |
@@ -563,19 +552,3 @@ Deliberately deferred — listed so the gaps are visible rather than assumed:
 - **Secret rotation** — one active secret per subscription
 - **Rate limiting and payload size caps**
 - **Automatic subscription disabling** after N consecutive failures
-
----
-
-## Design notes
-
-A few decisions that are non-obvious from the code:
-
-**Postgres is written before Redis.** The event and its deliveries are committed, then tasks are enqueued.
-If the process dies in between, the rows exist and the work is recoverable. Reversed, a crash would leave
-a queued task pointing at a row that was never written.
-
-**Event and delivery creation share a transaction.** Either the event and all its deliveries exist, or
-none of them do.
-
-**Subscriptions are deactivated, not deleted.** A foreign key means history references them; deleting
-would create errors under the deliveries, and delivery attempt table.
