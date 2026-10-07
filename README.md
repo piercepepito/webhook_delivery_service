@@ -4,8 +4,7 @@ Infrastructure that turns a business event into a **signed HTTP notification** d
 subscriber who registered. Retrying on failure and recording every attempt so delivery is
 observable.
 
-The demo showcases how a subscription registers, read and edit the existing subscription, post a new event,
-check the delivery status, and retry failed delivery attempts.
+The demo showcases how a subscription registers, read and edit the existing subscription, post a new event that would fail and does a retry (this is to show that the retry works with exponential backoff), check the delivery status, and retry failed delivery attempts.
 
 ![Webhook delivery service demo](docs/demo.gif)
 
