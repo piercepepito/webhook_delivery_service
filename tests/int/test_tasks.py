@@ -8,6 +8,8 @@ from tests import helpers
 
 import schemas
 
+from encryption import encryption
+
 @pytest.mark.integration
 class TestDelivery:
     def test_delivery_valid_1st_attempt(self, valid_create_subscription_payload, valid_event_type):
@@ -31,7 +33,7 @@ class TestDelivery:
             "sku":"dssfdsf",
             "event_type":"stock.below_reorder_point"
         }
-        secret = "some_secret_key"
+        secret = encryption.encrypt_keys("some_secret_key")
         
         task_result = tasks.delivery.delay(destination_url,
                                         webhook_payload,
@@ -65,8 +67,8 @@ class TestDelivery:
             "sku":"dssfdsf",
             "event_type":"stock.below_reorder_point"
         }
-        secret = "some_secret_key"
-        
+        secret = encryption.encrypt_keys("some_secret_key")
+
         task_result = tasks.delivery.delay(destination_url,
                                         webhook_payload,
                                         str(delivery_data.id),
@@ -97,7 +99,7 @@ class TestDelivery:
             "sku":"dssfdsf",
             "event_type":"stock.below_reorder_point"
         }
-        secret = "some_secret_key"
+        secret = encryption.encrypt_keys("some_secret_key")
         
         task_result = tasks.delivery.delay(destination_url,
                                             webhook_payload,
@@ -127,7 +129,7 @@ class TestDelivery:
             "sku":"dssfdsf",
             "event_type":"stock.below_reorder_point"
         }
-        secret = "some_secret_key"
+        secret = encryption.encrypt_keys("some_secret_key")
         
         task_result = tasks.delivery.delay(destination_url,
                                             webhook_payload,

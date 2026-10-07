@@ -23,7 +23,7 @@ def webhook_retry():
     attempt_count += 1
 
     print("POST failed. retrying again")
-    if attempt_count < 3:
+    if attempt_count < 5:
         return Response(status_code=500)
 
     return Response(status_code=200)
@@ -41,4 +41,4 @@ def webhook_slow():
     Recreates a slow reponding server
     """
     time.sleep(10)
-    return Response(200)
+    return Response(status_code=200)
