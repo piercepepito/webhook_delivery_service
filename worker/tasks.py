@@ -82,8 +82,9 @@ def delivery(self, destination_url: str, webhook_payload: dict, delivery_id, sec
         return delivery_and_attempts.message_sent_attempt(delivery_attempt_payload, deliver_status, seconds)
 
     except exceptions.WebDeliveryError as error:
-        base_delay_seconds = 5
+        base_delay_seconds = 2
         wait = base_delay_seconds * 2 ** self.request.retries
+        print(f"retrying in: {wait} seconds")
 
         response = error.original_error.response
         error_response = {
